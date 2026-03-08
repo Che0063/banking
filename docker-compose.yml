@@ -1,0 +1,30 @@
+services:
+  backend:
+    build: ./backend
+    container_name: banking-backend
+    restart: unless-stopped
+    volumes:
+      - banking-data:/data
+    environment:
+      # Set your password here. Leave blank to disable password protection.
+      - APP_PASSWORD=changeme
+    networks:
+      - banking
+
+  frontend:
+    build: ./frontend
+    container_name: banking-frontend
+    restart: unless-stopped
+    ports:
+      - "3456:80"
+    depends_on:
+      - backend
+    networks:
+      - banking
+
+volumes:
+  banking-data:
+
+networks:
+  banking:
+    driver: bridge
