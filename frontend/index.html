@@ -1,958 +1,211 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Banking</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
-  <script src="https://unpkg.com/react@18.2.0/umd/react.production.min.js"></script>
-  <script src="https://unpkg.com/react-dom@18.2.0/umd/react-dom.production.min.js"></script>
-  <script src="https://unpkg.com/prop-types@15.8.1/prop-types.min.js"></script>
-  <script src="https://unpkg.com/recharts@2.10.3/umd/Recharts.js"></script>
-  <script src="https://unpkg.com/@babel/standalone@7.23.5/babel.min.js"></script>
-  <style>
-    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-    :root{
-      --bg:#f7f6f3;--surface:#fff;--surface2:#f0ede8;--border:#e2ddd8;
-      --text:#1a1714;--text2:#6b6460;--text3:#9e9894;
-      --accent:#2d6a4f;--accent-light:#e8f4f0;--accent-hover:#245a42;
-      --danger:#c0392b;--danger-light:#fdf0ee;
-      --warn:#d4820a;--warn-light:#fef8ec;
-      --income:#1a5276;--radius:10px;--radius-sm:6px;
-      --shadow:0 1px 3px rgba(0,0,0,.07),0 1px 2px rgba(0,0,0,.05);
-      --shadow-md:0 4px 12px rgba(0,0,0,.10),0 2px 4px rgba(0,0,0,.06);
-    }
-    body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);font-size:14px;line-height:1.5;min-height:100vh}
-    .app{display:flex;min-height:100vh}
-    .sidebar{width:220px;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;z-index:10}
-    .sidebar-logo{padding:24px 20px 20px;border-bottom:1px solid var(--border)}
-    .sidebar-logo h1{font-size:17px;font-weight:600;letter-spacing:-.3px}
-    .sidebar-logo span{color:var(--accent)}
-    .sidebar-nav{padding:12px 10px;flex:1}
-    .nav-item{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:var(--radius-sm);cursor:pointer;font-size:13.5px;color:var(--text2);transition:all .15s;margin-bottom:2px;border:none;background:none;width:100%;text-align:left}
-    .nav-item:hover{background:var(--surface2);color:var(--text)}
-    .nav-item.active{background:var(--accent-light);color:var(--accent);font-weight:500}
-    .main{margin-left:220px;flex:1;padding:32px;min-width:0}
-    .page-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:28px;flex-wrap:wrap;gap:12px}
-    .page-header h2{font-size:22px;font-weight:600;letter-spacing:-.4px}
-    .page-header p{color:var(--text2);font-size:13px;margin-top:2px}
-    .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow)}
-    .card-padded{padding:20px}
-    .stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-bottom:24px}
-    .stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px 20px;box-shadow:var(--shadow)}
-    .stat-label{font-size:12px;color:var(--text3);font-weight:500;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
-    .stat-value{font-size:26px;font-weight:600;letter-spacing:-.8px;font-family:'DM Mono',monospace}
-    .stat-value.positive{color:var(--income)}.stat-value.negative{color:var(--danger)}.stat-value.warn{color:var(--warn)}
-    .stat-sub{font-size:12px;color:var(--text3);margin-top:4px}
-    .btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:var(--radius-sm);font-family:'DM Sans',sans-serif;font-size:13.5px;font-weight:500;cursor:pointer;border:none;transition:all .15s;white-space:nowrap}
-    .btn-primary{background:var(--accent);color:white}.btn-primary:hover{background:var(--accent-hover)}
-    .btn-secondary{background:var(--surface2);color:var(--text);border:1px solid var(--border)}.btn-secondary:hover{background:var(--border)}
-    .btn-danger{background:var(--danger-light);color:var(--danger);border:1px solid #f5c6c2}.btn-danger:hover{background:#f9d7d4}
-    .btn-sm{padding:5px 10px;font-size:12.5px}
-    .btn-ghost{background:none;color:var(--text2);border:none;padding:5px 8px}.btn-ghost:hover{background:var(--surface2);color:var(--text)}
-    .btn:disabled{opacity:.45;cursor:not-allowed}
-    /* Table */
-    .table-outer{overflow-x:auto}
-    table{width:100%;border-collapse:collapse;font-size:13px;table-layout:fixed}
-    thead th{text-align:left;font-size:11.5px;font-weight:600;text-transform:uppercase;letter-spacing:.4px;color:var(--text3);border-bottom:1px solid var(--border);white-space:nowrap;position:relative;background:var(--surface)}
-    .th-inner{display:flex;align-items:center;gap:4px;padding:9px 12px;user-select:none}
-    .th-sort{cursor:pointer}.th-sort:hover .th-label{color:var(--text)}
-    .th-resize{position:absolute;right:0;top:0;bottom:0;width:5px;cursor:col-resize;z-index:2}
-    .th-resize:hover,.th-resize.active{background:var(--accent);opacity:.4}
-    .th-filter-btn{background:none;border:none;cursor:pointer;color:var(--text3);padding:2px 3px;border-radius:3px;line-height:1;display:flex;align-items:center;flex-shrink:0}
-    .th-filter-btn:hover,.th-filter-btn.on{color:var(--accent);background:var(--accent-light)}
-    tbody tr{transition:background .1s}
-    tbody tr:hover{background:var(--surface2)}
-    tbody tr.sel{background:#fff9ed}
-    tbody td{padding:10px 12px;border-bottom:1px solid var(--border);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-    tbody tr:last-child td{border-bottom:none}
-    .mono{font-family:'DM Mono',monospace;font-size:12.5px}
-    .amt-neg{color:var(--danger)}.amt-pos{color:var(--income)}
-    .badge{display:inline-block;padding:2px 8px;border-radius:100px;font-size:11.5px;font-weight:500}
-    .badge-pending{background:var(--warn-light);color:var(--warn)}
-    .badge-transfer{background:#eef2ff;color:#4361ee}
-    .badge-start{background:#f0ede8;color:var(--text2)}
-    .badge-cat{background:var(--surface2);color:var(--text2)}
-    /* Filter popup */
-    .col-filter-popup{position:absolute;top:calc(100% + 2px);left:0;z-index:200;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow-md);padding:12px;min-width:220px;max-width:280px}
-    .col-filter-popup input[type=text],.col-filter-popup input[type=date]{width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px;margin-bottom:6px;font-family:'DM Sans',sans-serif}
-    .col-filter-popup input:focus{outline:none;border-color:var(--accent)}
-    .filter-values{max-height:150px;overflow-y:auto;margin-bottom:8px;border:1px solid var(--border);border-radius:var(--radius-sm);padding:4px}
-    .fv-row{display:flex;align-items:center;gap:8px;padding:4px 6px;font-size:13px;cursor:pointer;border-radius:4px}
-    .fv-row:hover{background:var(--surface2)}
-    /* Forms */
-    .form-grid{display:grid;gap:14px}
-    .form-2{grid-template-columns:1fr 1fr}
-    .form-3{grid-template-columns:1fr 1fr 1fr}
-    .form-group{display:flex;flex-direction:column;gap:5px}
-    .form-label{font-size:12.5px;font-weight:500;color:var(--text2)}
-    .form-input,.form-select{padding:9px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-family:'DM Sans',sans-serif;font-size:13.5px;color:var(--text);background:var(--surface);width:100%}
-    .form-input:focus,.form-select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(45,106,79,.1)}
-    .form-hint{font-size:11.5px;color:var(--text3)}
-    /* Modal */
-    .overlay{position:fixed;inset:0;background:rgba(0,0,0,.35);backdrop-filter:blur(2px);z-index:100;display:flex;align-items:center;justify-content:center;padding:20px}
-    .modal{background:var(--surface);border-radius:14px;box-shadow:var(--shadow-md);width:100%;max-width:520px;max-height:90vh;overflow-y:auto}
-    .modal-lg{max-width:720px}.modal-xl{max-width:960px}
-    .mhdr{display:flex;align-items:center;justify-content:space-between;padding:20px 24px 16px;border-bottom:1px solid var(--border)}
-    .mhdr h3{font-size:16px;font-weight:600}
-    .mbody{padding:20px 24px}
-    .mfoot{padding:16px 24px;border-top:1px solid var(--border);display:flex;gap:10px;justify-content:flex-end}
-    /* Split */
-    .split-row{display:flex;align-items:center;gap:8px;background:var(--surface2);border-radius:var(--radius-sm);padding:10px 12px;margin-top:4px}
-    .split-name{font-size:13px;font-weight:500;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis}
-    .split-input{width:80px;padding:6px 8px;border:1px solid var(--border);border-radius:var(--radius-sm);font-family:'DM Mono',monospace;font-size:13px;text-align:right;background:white}
-    .split-input:focus{outline:none;border-color:var(--accent)}
-    .split-input.ro{background:var(--surface2);color:var(--text2)}
-    .mode-btn{padding:3px 7px;font-size:11px;border:1px solid var(--border);border-radius:4px;cursor:pointer;background:white;color:var(--text2)}
-    .mode-btn.on{background:var(--accent-light);color:var(--accent);border-color:var(--accent)}
-    /* Misc */
-    .pending-banner{background:var(--warn-light);border:1px solid #fce4b2;border-radius:var(--radius);padding:12px 16px;display:flex;align-items:center;gap:10px;margin-bottom:20px;font-size:13.5px;color:var(--warn)}
-    .bulk-bar{display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--warn-light);border:1px solid #fce4b2;border-radius:var(--radius);margin-bottom:12px;font-size:13.5px;color:var(--warn);font-weight:500;flex-wrap:wrap}
-    .sec-title{font-size:12px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px;margin-top:20px}
-    .filter-row{display:flex;gap:8px;align-items:center;margin-bottom:20px;flex-wrap:wrap}
-    .fsel{padding:7px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-family:'DM Sans',sans-serif;font-size:13px;background:var(--surface);color:var(--text)}
-    .toast{position:fixed;bottom:24px;right:24px;background:var(--text);color:white;padding:12px 18px;border-radius:var(--radius);font-size:13.5px;font-weight:500;z-index:999;box-shadow:var(--shadow-md);animation:slideUp .2s ease}
-    @keyframes slideUp{from{transform:translateY(12px);opacity:0}to{transform:translateY(0);opacity:1}}
-    .empty-state{text-align:center;padding:48px 24px;color:var(--text3)}
-    .upload-area{border:2px dashed var(--border);border-radius:var(--radius);padding:28px;text-align:center;cursor:pointer;transition:all .15s;display:block}
-    .upload-area:hover{border-color:var(--accent);background:var(--accent-light)}
-    .upload-area p{color:var(--text2);font-size:14px;margin-top:8px}
-    .upload-area small{color:var(--text3);font-size:12px}
-    .lock-screen{min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--bg)}
-    .lock-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:40px;width:100%;max-width:360px;box-shadow:var(--shadow-md);text-align:center}
-    .tag-list{display:flex;flex-wrap:wrap;gap:6px}
-    .tag{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:100px;font-size:12.5px}
-    .rule-row{display:flex;align-items:center;gap:8px;padding:9px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);margin-bottom:6px;background:var(--surface2);font-size:13px;flex-wrap:wrap}
-    .balance-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:16px}
-    .balance-card{padding:20px;border-radius:var(--radius);border:1px solid var(--border)}
-    .balance-card.p1{background:linear-gradient(135deg,#e8f4f0,#d5ece5);border-color:#bdddd4}
-    .balance-card.p2{background:linear-gradient(135deg,#eaf2fb,#d4e9f7);border-color:#b8d8f0}
-    .balance-name{font-size:12px;font-weight:600;color:var(--text2);margin-bottom:6px;text-transform:uppercase;letter-spacing:.4px}
-    .balance-amount{font-size:28px;font-weight:600;letter-spacing:-1px;font-family:'DM Mono',monospace}
-    .balance-card.p1 .balance-amount{color:var(--accent)}
-    .balance-card.p2 .balance-amount{color:var(--income)}
-    .search-bar{display:flex;gap:10px;align-items:center;margin-bottom:14px;flex-wrap:wrap}
-    .search-wrap{position:relative;flex:1;min-width:160px;max-width:260px}
-    .search-wrap svg{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text3);pointer-events:none}
-    .search-input{padding:8px 12px 8px 32px;border:1px solid var(--border);border-radius:var(--radius-sm);font-family:'DM Sans',sans-serif;font-size:13.5px;width:100%;background:var(--surface)}
-    .search-input:focus{outline:none;border-color:var(--accent)}
-    .pagination{display:flex;gap:6px;align-items:center;justify-content:space-between;padding:12px 14px;font-size:13px;color:var(--text2)}
-    /* Import review table */
-    .dup-row{background:#fff9ed}
-    .dup-row td{border-left:3px solid var(--warn)}
-    .suggestion-row{display:flex;align-items:center;gap:10px;padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);margin-bottom:6px;background:var(--surface);font-size:13px}
-    .conf-badge{font-size:11px;padding:2px 7px;border-radius:100px;background:var(--accent-light);color:var(--accent);font-weight:600}
-    input[type=checkbox]{width:14px;height:14px;cursor:pointer;accent-color:var(--accent)}
-    /* Recharts legend overflow fix */
-    .recharts-legend-wrapper{overflow:visible!important}
-  </style>
+<meta charset="utf-8">
+<title>Couple Spending Dashboard</title>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+
+body{
+font-family:Arial;
+margin:40px;
+}
+
+table{
+border-collapse:collapse;
+width:100%;
+}
+
+td,th{
+border:1px solid #ccc;
+padding:6px;
+}
+
+.alert{
+background:#ffe0e0;
+padding:10px;
+margin-bottom:10px;
+}
+
+</style>
 </head>
+
 <body>
-<div id="root"></div>
-<script type="text/babel">
-const {useState,useEffect,useCallback,useRef} = React;
-const API='';
-const getToken=()=>sessionStorage.getItem('bk_token');
-const setToken=t=>sessionStorage.setItem('bk_token',t);
-const authFetch=(url,opts={})=>{
-  const h={...(opts.headers||{}),'Authorization':`Bearer ${getToken()}`};
-  return fetch(url,{...opts,headers:h});
-};
-const fmt=n=>n==null?'—':`${n<0?'-':n>0?'+':''}$${Math.abs(n).toFixed(2)}`;
-const fmtAbs=n=>n==null?'—':`$${Math.abs(n).toFixed(2)}`;
-const today=()=>new Date().toISOString().slice(0,10);
 
-// ── Icons ─────────────────────────────────────────────────────────────────────
-const I=({n,s=16,style})=>{
-  const p={width:s,height:s,viewBox:"0 0 24 24",fill:"none",stroke:"currentColor",strokeWidth:2,strokeLinecap:"round",strokeLinejoin:"round",style,flexShrink:0};
-  const m={
-    home:<svg {...p}><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>,
-    list:<svg {...p}><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>,
-    upload:<svg {...p}><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg>,
-    download:<svg {...p}><polyline points="8 17 12 21 16 17"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.88 18.09A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.83"/></svg>,
-    settings:<svg {...p}><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>,
-    plus:<svg {...p} strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>,
-    edit:<svg {...p}><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>,
-    trash:<svg {...p}><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>,
-    x:<svg {...p} strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>,
-    warn:<svg {...p}><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>,
-    search:<svg {...p}><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>,
-    lock:<svg {...p}><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>,
-    filter:<svg {...p}><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>,
-    zap:<svg {...p}><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>,
-    cu:<svg {...p} strokeWidth="2.5"><polyline points="18 15 12 9 6 15"/></svg>,
-    cd:<svg {...p} strokeWidth="2.5"><polyline points="6 9 12 15 18 9"/></svg>,
-    cs:<svg {...p}><polyline points="6 9 12 3 18 9"/><polyline points="6 15 12 21 18 15"/></svg>,
-    check:<svg {...p}><polyline points="20 6 9 17 4 12"/></svg>,
-  };
-  return m[n]||null;
-};
+<h1>Anthony & Sam Spending</h1>
 
-function Toast({msg,onDone}){
-  useEffect(()=>{const t=setTimeout(onDone,2800);return()=>clearTimeout(t);},[]);
-  return <div className="toast">{msg}</div>;
-}
-function LockScreen({onUnlock}){
-  const [pw,setPw]=useState('');const [err,setErr]=useState('');const [ld,setLd]=useState(false);
-  const submit=async()=>{setLd(true);setErr('');try{const r=await fetch(`${API}/api/auth/login`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:pw})});if(r.ok){const d=await r.json();setToken(d.token);onUnlock();}else setErr('Incorrect password.');}catch{setErr('Connection failed.');}setLd(false);};
-  return(<div className="lock-screen"><div className="lock-card"><div style={{marginBottom:16,color:'var(--accent)'}}><I n="lock" s={32}/></div><h1 style={{fontSize:22,fontWeight:600,marginBottom:6}}>Bank<span style={{color:'var(--accent)'}}>ing</span></h1><p style={{color:'var(--text2)',fontSize:13.5,marginBottom:24}}>Enter password to continue</p><input type="password" className="form-input" style={{marginBottom:10}} placeholder="Password" value={pw} onChange={e=>setPw(e.target.value)} onKeyDown={e=>e.key==='Enter'&&submit()} autoFocus/>{err&&<p style={{color:'var(--danger)',fontSize:13,marginBottom:10}}>{err}</p>}<button className="btn btn-primary" style={{width:'100%'}} onClick={submit} disabled={ld}>{ld?'Checking…':'Unlock'}</button></div></div>);
-}
+<h2>Import CSV</h2>
 
-// ── Split Input ───────────────────────────────────────────────────────────────
-function SplitInput({label,pct,onPctChange,amount,readonly}){
-  const [mode,setMode]=useState('pct');
-  const dv=pct!=null?(pct*amount).toFixed(2):'';
-  const handleDollar=v=>{if(!v){onPctChange('');return;}const d=parseFloat(v);if(!isNaN(d)&&amount!==0)onPctChange(String(Math.round((d/amount)*100)));};
-  if(readonly)return(<div className="split-row"><span className="split-name">{label}</span><input className="split-input ro" readOnly value={pct!=null?Math.round(pct*100):'—'}/><span style={{fontSize:12,color:'var(--text3)'}}>%</span><span className="mono" style={{width:70,textAlign:'right',color:'var(--text2)'}}>{pct!=null?fmtAbs(pct*amount):'—'}</span></div>);
-  return(<div className="split-row"><span className="split-name">{label}</span><button className={`mode-btn${mode==='pct'?' on':''}`} onClick={()=>setMode('pct')}>%</button><button className={`mode-btn${mode==='dollar'?' on':''}`} onClick={()=>setMode('dollar')}>$</button>{mode==='pct'?<input type="number" min="0" max="100" step="1" className="split-input" placeholder="50" value={pct!=null?String(Math.round(pct*100)):''} onChange={e=>onPctChange(e.target.value)}/>:<input type="number" step="0.01" className="split-input" placeholder={(amount/2).toFixed(2)} value={dv} onChange={e=>handleDollar(e.target.value)}/>}<span style={{fontSize:12,color:'var(--text3)',width:12}}>{mode==='pct'?'%':'$'}</span><span className="mono" style={{width:70,textAlign:'right',color:'var(--text2)'}}>{mode==='pct'&&pct!=null?fmtAbs(pct*amount):mode==='dollar'&&pct!=null?`${Math.round(pct*100)}%`:'—'}</span></div>);
-}
+<input type="file" id="file">
+<input placeholder="Expected balance after import" id="expected">
+<button onclick="upload()">Import</button>
 
-// ── Tx Modal ──────────────────────────────────────────────────────────────────
-function TxModal({tx,onClose,onSave,settings,categories}){
-  const isEdit=!!tx?.id;
-  const [f,setF]=useState({date:tx?.date||today(),vd:tx?.value_date||'',amount:tx?.amount!=null?String(tx.amount):'',merchant:tx?.merchant||'',category:tx?.category||(categories[0]||'Groceries'),notes:tx?.notes||'',p1pct:tx?.person1_pct!=null?String(Math.round(tx.person1_pct*100)):'',is_sb:tx?.is_starting_balance||false});
-  const [saving,setSaving]=useState(false);const [err,setErr]=useState('');
-  const set=(k,v)=>setF(x=>({...x,[k]:v}));
-  const amount=parseFloat(f.amount)||0;
-  const p1pct=f.p1pct===''?null:parseFloat(f.p1pct)/100;
-  const p2pct=p1pct!=null?1-p1pct:null;
-  const save=async()=>{if(!f.merchant.trim()){setErr('Merchant required.');return;}if(!f.amount||isNaN(parseFloat(f.amount))){setErr('Amount required.');return;}setSaving(true);try{await onSave({date:f.date,value_date:f.vd||null,amount:parseFloat(f.amount),merchant:f.merchant.trim(),category:f.category,notes:f.notes.trim()||null,person1_pct:p1pct,is_transfer:f.category==='Transfer',is_starting_balance:f.is_sb});onClose();}catch{setErr('Save failed.');setSaving(false);}};
-  return(<div className="overlay" onClick={e=>e.target===e.currentTarget&&onClose()}><div className="modal"><div className="mhdr"><h3>{isEdit?'Edit Transaction':'Add Transaction'}</h3><button className="btn btn-ghost btn-sm" onClick={onClose}><I n="x"/></button></div><div className="mbody"><div className="form-grid"><div className="form-grid form-2"><div className="form-group"><label className="form-label">Desktop Date</label><input type="date" className="form-input" value={f.date} onChange={e=>set('date',e.target.value)}/></div><div className="form-group"><label className="form-label">Mobile Date</label><input type="date" className="form-input" value={f.vd} onChange={e=>set('vd',e.target.value)}/>{!f.vd&&<span className="form-hint">Blank = Pending</span>}</div></div><div className="form-group"><label className="form-label">Amount ($)</label><input type="number" className="form-input" step="0.01" placeholder="-25.00" value={f.amount} onChange={e=>set('amount',e.target.value)}/></div><div className="form-group"><label className="form-label">Merchant</label><input type="text" className="form-input" value={f.merchant} onChange={e=>set('merchant',e.target.value)}/></div><div className="form-grid form-2"><div className="form-group"><label className="form-label">Category</label><select className="form-select" value={f.category} onChange={e=>set('category',e.target.value)}>{categories.map(c=><option key={c}>{c}</option>)}</select></div><div className="form-group"><label className="form-label">Notes</label><input type="text" className="form-input" value={f.notes} onChange={e=>set('notes',e.target.value)}/></div></div><label style={{display:'flex',alignItems:'center',gap:8,fontSize:13,cursor:'pointer'}}><input type="checkbox" checked={f.is_sb} onChange={e=>set('is_sb',e.target.checked)}/>Starting balance entry</label>{f.category!=='Transfer'&&!f.is_sb&&<div className="form-group"><label className="form-label">Split (% or $ toggle)</label><SplitInput label={settings.person1_name} pct={p1pct} onPctChange={v=>set('p1pct',v)} amount={amount}/><SplitInput label={settings.person2_name} pct={p2pct} readonly amount={amount}/>{f.p1pct===''&&<p style={{fontSize:12,color:'var(--warn)',marginTop:4}}>No split entered → Pending</p>}</div>}{err&&<p style={{color:'var(--danger)',fontSize:13}}>{err}</p>}</div></div><div className="mfoot"><button className="btn btn-secondary" onClick={onClose}>Cancel</button><button className="btn btn-primary" onClick={save} disabled={saving}>{saving?'Saving…':isEdit?'Save Changes':'Add'}</button></div></div></div>);
+<div id="importResult"></div>
+
+<h2>Spending Alerts</h2>
+
+<div id="alerts"></div>
+
+<h2>Transactions</h2>
+
+<button onclick="deleteSelected()">Delete Selected</button>
+
+<table id="txTable">
+<thead>
+<tr>
+<th></th>
+<th>Date</th>
+<th>Mobile Date</th>
+<th>Merchant</th>
+<th>Amount</th>
+<th>Category</th>
+</tr>
+</thead>
+<tbody></tbody>
+</table>
+
+<h2>Monthly Comparison</h2>
+
+<canvas id="chart"></canvas>
+
+<script>
+
+let selected = new Set()
+
+async function upload(){
+
+let f=document.getElementById("file").files[0]
+
+let expected=document.getElementById("expected").value
+
+let form=new FormData()
+
+form.append("file",f)
+
+let r=await fetch("/api/import?expected_balance="+expected,{
+method:"POST",
+body:form
+})
+
+let j=await r.json()
+
+document.getElementById("importResult").innerText=
+`Imported ${j.imported} transactions, skipped ${j.duplicates_skipped} duplicates`
+
+load()
+
 }
 
-// ── Bulk Edit Modal ───────────────────────────────────────────────────────────
-function BulkEditModal({count,categories,settings,onClose,onSave}){
-  const [date,setDate]=useState('');const [category,setCategory]=useState('');const [p1pct,setP1pct]=useState('');const [mode,setMode]=useState('pct');const [saving,setSaving]=useState(false);
-  const save=async()=>{setSaving(true);const b={};if(date)b.date=date;if(category)b.category=category;if(p1pct!==''){const v=parseFloat(p1pct)/100;if(!isNaN(v))b.person1_pct=v;}await onSave(b);setSaving(false);};
-  return(<div className="overlay" onClick={e=>e.target===e.currentTarget&&onClose()}><div className="modal"><div className="mhdr"><h3>Bulk Edit — {count} transactions</h3><button className="btn btn-ghost btn-sm" onClick={onClose}><I n="x"/></button></div><div className="mbody"><p style={{fontSize:13,color:'var(--text2)',marginBottom:14}}>Only filled fields will be updated.</p><div className="form-grid"><div className="form-group"><label className="form-label">Date (set all to)</label><input type="date" className="form-input" value={date} onChange={e=>setDate(e.target.value)}/></div><div className="form-group"><label className="form-label">Category</label><select className="form-select" value={category} onChange={e=>setCategory(e.target.value)}><option value="">— no change —</option>{categories.map(c=><option key={c}>{c}</option>)}</select></div><div className="form-group"><label className="form-label">{settings.person1_name}'s split</label><div style={{display:'flex',gap:6,alignItems:'center'}}><button className={`mode-btn${mode==='pct'?' on':''}`} onClick={()=>setMode('pct')}>%</button><button className={`mode-btn${mode==='dollar'?' on':''}`} onClick={()=>setMode('dollar')}>$</button><input type="number" className="form-input" style={{flex:1}} placeholder={mode==='pct'?'e.g. 50':'e.g. 12.50'} value={p1pct} onChange={e=>setP1pct(e.target.value)}/><span style={{color:'var(--text2)'}}>{mode==='pct'?'%':'$'}</span></div><span className="form-hint">Leave blank = no change</span></div></div></div><div className="mfoot"><button className="btn btn-secondary" onClick={onClose}>Cancel</button><button className="btn btn-primary" onClick={save} disabled={saving}>{saving?'Saving…':`Apply to ${count}`}</button></div></div></div>);
+async function load(){
+
+let r=await fetch("/api/transactions")
+
+let rows=await r.json()
+
+let tbody=document.querySelector("#txTable tbody")
+
+tbody.innerHTML=""
+
+for(let t of rows){
+
+let tr=document.createElement("tr")
+
+tr.innerHTML=`
+
+<td><input type="checkbox" onchange="toggle(${t.id})"></td>
+<td>${t.date}</td>
+<td>${t.value_date||""}</td>
+<td>${t.merchant}</td>
+<td>${t.amount}</td>
+<td>${t.category}</td>
+
+`
+
+tbody.appendChild(tr)
+
 }
 
-// ── Column Filter Popup ───────────────────────────────────────────────────────
-function ColFilter({col,colType,current,onApply,onClose}){
-  const [text,setText]=useState(current?.text||'');
-  const [df,setDf]=useState(current?.dateFrom||'');
-  const [dt,setDt]=useState(current?.dateTo||'');
-  const [checked,setChecked]=useState(new Set(current?.values||[]));
-  const [vals,setVals]=useState([]);
-  const ref=useRef();
-  useEffect(()=>{
-    if(colType==='values'||colType==='date')authFetch(`${API}/api/transactions/column-values?col=${col}`).then(r=>r.json()).then(d=>{setVals(Array.isArray(d)?d:[]);});
-    const h=e=>{if(ref.current&&!ref.current.contains(e.target))onClose();};
-    document.addEventListener('mousedown',h);return()=>document.removeEventListener('mousedown',h);
-  },[]);
-  const tog=v=>setChecked(s=>{const n=new Set(s);n.has(v)?n.delete(v):n.add(v);return n;});
-  const apply=()=>onApply({text,dateFrom:df,dateTo:dt,values:[...checked]});
-  const clear=()=>{setText('');setDf('');setDt('');setChecked(new Set());onApply(null);};
-  const filtered=vals.filter(v=>!text||String(v).toLowerCase().includes(text.toLowerCase()));
-  return(<div className="col-filter-popup" ref={ref}>
-    {colType==='text'&&<input type="text" placeholder="Search…" value={text} onChange={e=>setText(e.target.value)} onKeyDown={e=>e.key==='Enter'&&apply()} autoFocus/>}
-    {colType==='values'&&<><input type="text" placeholder="Search values…" value={text} onChange={e=>setText(e.target.value)} autoFocus/><div className="filter-values">{filtered.map(v=><label key={v} className="fv-row"><input type="checkbox" checked={checked.has(v)} onChange={()=>tog(v)}/><span>{v}</span></label>)}</div></>}
-    {colType==='date'&&<><label style={{fontSize:12,color:'var(--text3)'}}>From</label><input type="date" value={df} onChange={e=>setDf(e.target.value)}/><label style={{fontSize:12,color:'var(--text3)'}}>To</label><input type="date" value={dt} onChange={e=>setDt(e.target.value)}/>{vals.length>0&&<><div className="filter-values">{filtered.map(v=><label key={v} className="fv-row"><input type="checkbox" checked={checked.has(v)} onChange={()=>tog(v)}/><span>{v}</span></label>)}</div></>}</>}
-    <div style={{display:'flex',gap:6}}><button className="btn btn-primary btn-sm" style={{flex:1}} onClick={apply}>Apply</button><button className="btn btn-secondary btn-sm" onClick={clear}>Clear</button></div>
-  </div>);
+loadAlerts()
+loadChart()
+
 }
 
-// ── Resizable Th ──────────────────────────────────────────────────────────────
-function RsTh({colKey,label,width,onResize,sortCol,sortDir,onSort,colType,colFilter,onFilter}){
-  const [res,setRes]=useState(false);const [showF,setShowF]=useState(false);
-  const sx=useRef(0);const sw=useRef(0);
-  const onMD=e=>{e.preventDefault();sx.current=e.clientX;sw.current=width;setRes(true);const mv=ev=>onResize(Math.max(50,sw.current+(ev.clientX-sx.current)));const up=()=>{setRes(false);window.removeEventListener('mousemove',mv);window.removeEventListener('mouseup',up);};window.addEventListener('mousemove',mv);window.addEventListener('mouseup',up);};
-  const isF=colFilter&&(colFilter.text||colFilter.dateFrom||colFilter.dateTo||(colFilter.values&&colFilter.values.length>0));
-  const isSorted=sortCol===colKey;
-  return(<th style={{width,minWidth:width}} className={onSort?'th-sort':''}>
-    <div className="th-inner" onClick={onSort?()=>onSort(colKey):undefined}>
-      <span className="th-label" style={{color:'var(--text3)',fontSize:11.5}}>{label}</span>
-      {onSort&&(isSorted?(sortDir==='asc'?<I n="cu" s={11}/>:<I n="cd" s={11}/>):<I n="cs" s={11} style={{opacity:.3}}/>)}
-      {colType&&<button className={`th-filter-btn${isF?' on':''}`} onClick={e=>{e.stopPropagation();setShowF(s=>!s);}}><I n="filter" s={10}/></button>}
-    </div>
-    {showF&&<ColFilter col={colKey} colType={colType} current={colFilter} onApply={f=>{onFilter(colKey,f);setShowF(false);}} onClose={()=>setShowF(false)}/>}
-    <div className={`th-resize${res?' active':''}`} onMouseDown={onMD}/>
-  </th>);
+function toggle(id){
+
+if(selected.has(id))
+selected.delete(id)
+else
+selected.add(id)
+
 }
 
-// ── Rule Preview Modal ────────────────────────────────────────────────────────
-function RulePreviewModal({changes,onClose,onApply}){
-  const [sel,setSel]=useState(new Set(changes.map(c=>c.id)));
-  const tog=id=>setSel(s=>{const n=new Set(s);n.has(id)?n.delete(id):n.add(id);return n;});
-  const togAll=()=>setSel(s=>s.size===changes.length?new Set():new Set(changes.map(c=>c.id)));
-  return(<div className="overlay"><div className="modal modal-xl"><div className="mhdr"><h3>Review Rule Changes — {changes.length} affected</h3><button className="btn btn-ghost btn-sm" onClick={onClose}><I n="x"/></button></div><div className="mbody" style={{padding:'12px 24px'}}><p style={{fontSize:13,color:'var(--text2)',marginBottom:10}}>Deselect any transactions you want to keep as-is.</p><div style={{overflowY:'auto',maxHeight:'55vh'}}><table style={{width:'100%',fontSize:13,tableLayout:'fixed'}}><thead><tr><th style={{width:36,padding:'8px 10px',borderBottom:'1px solid var(--border)'}}><input type="checkbox" checked={sel.size===changes.length} onChange={togAll}/></th><th style={{padding:'8px 10px',borderBottom:'1px solid var(--border)',textAlign:'left',color:'var(--text3)',fontSize:11.5,textTransform:'uppercase',width:100}}>Date</th><th style={{padding:'8px 10px',borderBottom:'1px solid var(--border)',textAlign:'left',color:'var(--text3)',fontSize:11.5,textTransform:'uppercase'}}>Merchant</th><th style={{padding:'8px 10px',borderBottom:'1px solid var(--border)',textAlign:'left',color:'var(--text3)',fontSize:11.5,textTransform:'uppercase',width:130}}>Current</th><th style={{padding:'8px 10px',borderBottom:'1px solid var(--border)',textAlign:'left',color:'var(--text3)',fontSize:11.5,textTransform:'uppercase',width:130}}>→ New</th></tr></thead><tbody>{changes.map(c=>(<tr key={c.id} style={{background:sel.has(c.id)?'#fff9ed':'white',cursor:'pointer'}} onClick={()=>tog(c.id)}><td style={{padding:'8px 10px',borderBottom:'1px solid var(--border)'}}><input type="checkbox" checked={sel.has(c.id)} onChange={()=>tog(c.id)} onClick={e=>e.stopPropagation()}/></td><td style={{padding:'8px 10px',borderBottom:'1px solid var(--border)',fontFamily:'DM Mono',fontSize:12}}>{c.date||'—'}</td><td style={{padding:'8px 10px',borderBottom:'1px solid var(--border)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{c.merchant}</td><td style={{padding:'8px 10px',borderBottom:'1px solid var(--border)'}}><span className="badge badge-cat">{c.old_category}</span></td><td style={{padding:'8px 10px',borderBottom:'1px solid var(--border)'}}><span className="badge" style={{background:'var(--accent-light)',color:'var(--accent)'}}>{c.new_category}</span></td></tr>))}</tbody></table></div></div><div className="mfoot" style={{justifyContent:'space-between'}}><span style={{fontSize:13,color:'var(--text2)'}}>{sel.size} of {changes.length} selected</span><div style={{display:'flex',gap:8}}><button className="btn btn-secondary" onClick={onClose}>Cancel</button><button className="btn btn-primary" onClick={()=>onApply([...sel])} disabled={sel.size===0}>Apply {sel.size}</button></div></div></div></div>);
+async function deleteSelected(){
+
+await fetch("/api/transactions/bulk-delete",{
+method:"POST",
+headers:{'Content-Type':'application/json'},
+body:JSON.stringify([...selected])
+})
+
+selected.clear()
+
+load()
+
 }
 
-// ── Import Review Modal ───────────────────────────────────────────────────────
-function ImportReviewModal({rows,skipped,onClose,onConfirm}){
-  const dups=rows.filter(r=>r.duplicate_of);
-  const clean=rows.filter(r=>!r.duplicate_of);
-  // For each row: action = 'import' | 'skip'
-  const [actions,setActions]=useState(()=>{
-    const m={};
-    rows.forEach((r,i)=>{m[i]=r.duplicate_of?'skip':'import';});
-    return m;
-  });
-  const [saving,setSaving]=useState(false);
-  const [curBal,setCurBal]=useState(null);
-  useEffect(()=>{authFetch(`${API}/api/summary`).then(r=>r.json()).then(d=>setCurBal(d));},[]);
-  const setAction=(i,v)=>setActions(a=>({...a,[i]:v}));
-  const setAllDups=v=>{const m={...actions};rows.forEach((r,i)=>{if(r.duplicate_of)m[i]=v;});setActions(m);};
-  const importCount=Object.values(actions).filter(v=>v==='import').length;
+async function loadAlerts(){
 
-  const confirm=async()=>{
-    setSaving(true);
-    const payload=rows.map((r,i)=>({...r,action:actions[i]}));
-    await onConfirm(payload);
-    setSaving(false);
-  };
+let r=await fetch("/api/spending-alerts")
 
-  return(<div className="overlay"><div className="modal modal-xl"><div className="mhdr"><h3>Review Import — {rows.length} rows parsed</h3><button className="btn btn-ghost btn-sm" onClick={onClose}><I n="x"/></button></div>
-  <div className="mbody" style={{padding:'12px 24px'}}>
-    {curBal&&(()=>{
-    const toImport=rows.filter((_,i)=>actions[i]==='import');
-    const dShared=toImport.reduce((s,r)=>s+(r.amount||0),0);
-    const dP1=toImport.reduce((s,r)=>{if(r.person1_pct!=null)return s+r.person1_pct*(r.amount||0);return s;},0);
-    const dP2=toImport.reduce((s,r)=>{if(r.person2_pct!=null)return s+r.person2_pct*(r.amount||0);return s;},0);
-    const projShared=curBal.shared_balance+dShared;
-    const projP1=curBal.person1_balance+dP1;
-    const projP2=curBal.person2_balance+dP2;
-    return(<div style={{display:'flex',gap:14,marginBottom:14,padding:'10px 14px',background:'var(--surface2)',borderRadius:'var(--radius-sm)',fontSize:12.5,flexWrap:'wrap',alignItems:'center'}}>
-      <span style={{color:'var(--text3)',fontSize:12}}>After import ({importCount} rows):</span>
-      <span><strong>Shared:</strong> <span className={projShared>=0?'amt-pos':'amt-neg'}>{fmt(projShared)}</span></span>
-      <span><strong>P1:</strong> {fmt(projP1)}</span>
-      <span><strong>P2:</strong> {fmt(projP2)}</span>
-      <span style={{color:'var(--text3)',fontSize:11.5}}>({dShared>=0?'+':''}{dShared.toFixed(2)} net)</span>
-    </div>);
-  })()}
-  {dups.length>0&&<div style={{background:'var(--warn-light)',border:'1px solid #fce4b2',borderRadius:'var(--radius-sm)',padding:'10px 14px',marginBottom:14}}>
-      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:8}}>
-        <span style={{fontSize:13,color:'var(--warn)',fontWeight:500}}><I n="warn" s={14}/> {dups.length} possible duplicate{dups.length!==1?'s':''} found (highlighted below)</span>
-        <div style={{display:'flex',gap:8}}>
-          <button className="btn btn-secondary btn-sm" onClick={()=>setAllDups('skip')}>Skip all duplicates</button>
-          <button className="btn btn-secondary btn-sm" onClick={()=>setAllDups('import')}>Import all duplicates</button>
-        </div>
-      </div>
-    </div>}
-    <div style={{overflowY:'auto',maxHeight:'55vh'}}>
-      <table style={{width:'100%',fontSize:12.5,tableLayout:'fixed'}}>
-        <thead><tr>
-          <th style={{padding:'8px 10px',borderBottom:'1px solid var(--border)',color:'var(--text3)',fontSize:11,textTransform:'uppercase',width:90}}>Date</th>
-          <th style={{padding:'8px 10px',borderBottom:'1px solid var(--border)',color:'var(--text3)',fontSize:11,textTransform:'uppercase'}}>Merchant</th>
-          <th style={{padding:'8px 10px',borderBottom:'1px solid var(--border)',color:'var(--text3)',fontSize:11,textTransform:'uppercase',width:80}}>Amount</th>
-          <th style={{padding:'8px 10px',borderBottom:'1px solid var(--border)',color:'var(--text3)',fontSize:11,textTransform:'uppercase',width:90}}>Category</th>
-          <th style={{padding:'8px 10px',borderBottom:'1px solid var(--border)',color:'var(--text3)',fontSize:11,textTransform:'uppercase',width:80}}>Status</th>
-          <th style={{padding:'8px 10px',borderBottom:'1px solid var(--border)',color:'var(--text3)',fontSize:11,textTransform:'uppercase',width:130}}>Action</th>
-        </tr></thead>
-        <tbody>{rows.map((r,i)=>{
-          const isDup=!!r.duplicate_of;const action=actions[i];
-          return(<tr key={i} className={isDup?'dup-row':''} style={{opacity:action==='skip'?.5:1}}>
-            <td style={{padding:'8px 10px',borderBottom:'1px solid var(--border)',fontFamily:'DM Mono',fontSize:11.5}}>{r.date}</td>
-            <td style={{padding:'8px 10px',borderBottom:'1px solid var(--border)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{r.merchant}</td>
-            <td style={{padding:'8px 10px',borderBottom:'1px solid var(--border)',fontFamily:'DM Mono',fontSize:11.5,color:r.amount<0?'var(--danger)':'var(--income)'}}>{fmt(r.amount)}</td>
-            <td style={{padding:'8px 10px',borderBottom:'1px solid var(--border)'}}><span className="badge badge-cat" style={{fontSize:10.5}}>{r.category}</span></td>
-            <td style={{padding:'8px 10px',borderBottom:'1px solid var(--border)'}}>{isDup?<span className="badge badge-pending" style={{fontSize:10.5}}>Duplicate</span>:<span className="badge" style={{background:'var(--accent-light)',color:'var(--accent)',fontSize:10.5}}>New</span>}</td>
-            <td style={{padding:'8px 10px',borderBottom:'1px solid var(--border)'}}><div style={{display:'flex',gap:4}}>
-              <button className={`btn btn-sm${action==='import'?' btn-primary':' btn-secondary'}`} style={{padding:'3px 8px',fontSize:11}} onClick={()=>setAction(i,'import')}><I n="check" s={11}/>Import</button>
-              <button className={`btn btn-sm${action==='skip'?' btn-danger':' btn-secondary'}`} style={{padding:'3px 8px',fontSize:11}} onClick={()=>setAction(i,'skip')}><I n="x" s={11}/>Skip</button>
-            </div></td>
-          </tr>);
-        })}</tbody>
-      </table>
-    </div>
-    {skipped>0&&<p style={{fontSize:12,color:'var(--text3)',marginTop:8}}>{skipped} rows could not be parsed and were excluded.</p>}
-  </div>
-  <div className="mfoot" style={{justifyContent:'space-between'}}>
-    <span style={{fontSize:13,color:'var(--text2)'}}>{importCount} of {rows.length} will be imported</span>
-    <div style={{display:'flex',gap:8}}>
-      <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
-      <button className="btn btn-primary" onClick={confirm} disabled={saving||importCount===0}>{saving?'Importing…':`Import ${importCount}`}</button>
-    </div>
-  </div>
-  </div></div>);
+let alerts=await r.json()
+
+let div=document.getElementById("alerts")
+
+div.innerHTML=""
+
+alerts.forEach(a=>{
+
+let d=document.createElement("div")
+d.className="alert"
+d.innerText=a
+div.appendChild(d)
+
+})
+
 }
 
-// ── Dashboard ─────────────────────────────────────────────────────────────────
-const COLORS=['#1a5276','#2d6a4f','#c0392b','#d4820a','#6c3483','#117a65','#784212','#1a252f','#0e6655','#7b241c','#4a235a','#b7770d'];
+async function loadChart(){
 
-function Dashboard({settings}){
-  const [sum,setSum]=useState(null);
-  const [fy,setFy]=useState('');const [fm,setFm]=useState('');const [fc,setFc]=useState('');
-  const [cats,setCats]=useState([]);
-  const [chartView,setChartView]=useState('combined');
-  const [balHistory,setBalHistory]=useState([]);
-  const [yMin,setYMin]=useState('');const [yMax,setYMax]=useState('');
-  const [byMin,setByMin]=useState('');const [byMax,setByMax]=useState('');
+let r=await fetch("/api/monthly")
 
-  useEffect(()=>{authFetch(`${API}/api/categories`).then(r=>r.json()).then(setCats);},[]);
-  useEffect(()=>{
-    let url=`${API}/api/summary`;const p=new URLSearchParams();
-    if(fy)p.set('year',fy);if(fm)p.set('month',fm);if(fc)p.set('category',fc);
-    if([...p].length)url+='?'+p.toString();
-    authFetch(url).then(r=>r.json()).then(setSum);
-  },[fy,fm,fc]);
-  useEffect(()=>{
-    authFetch(`${API}/api/transactions/running-balance`).then(r=>r.json()).then(d=>{
-      if(!Array.isArray(d)||d.length===0){setBalHistory([]);return;}
-      const step=Math.max(1,Math.floor(d.length/120));
-      const pts=[];
-      for(let i=0;i<d.length;i+=step){
-        const r=d[i];
-        pts.push({date:r.date,Shared:r.shared_balance,[settings.person1_name]:r.person1_balance,[settings.person2_name]:r.person2_balance});
-      }
-      const last=d[d.length-1];
-      if(pts[pts.length-1]?.date!==last.date)pts.push({date:last.date,Shared:last.shared_balance,[settings.person1_name]:last.person1_balance,[settings.person2_name]:last.person2_balance});
-      setBalHistory(pts);
-    });
-  },[]);
+let data=await r.json()
 
-  if(!sum)return <div style={{padding:40,color:'var(--text3)'}}>Loading…</div>;
+let ctx=document.getElementById("chart")
 
-  const months=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  const catTotals=chartView==='p1'?sum.category_totals_p1:chartView==='p2'?sum.category_totals_p2:sum.category_totals;
-  const catData=Object.entries(catTotals||{}).map(([k,v])=>({name:k,value:v}));
-  const monthlyData=Object.entries(sum.monthly).map(([k,v])=>({month:k.slice(5),Income:+(v.income||0).toFixed(2),Expenses:+(v.expenses||0).toFixed(2),Net:+((v.income||0)-(v.expenses||0)).toFixed(2)})).slice(-12);
-  const personData=Object.entries(sum.monthly_person||{}).map(([k,v])=>({month:k.slice(5),[settings.person1_name]:+(v.p1||0).toFixed(2),[settings.person2_name]:+(v.p2||0).toFixed(2)})).slice(-12);
+new Chart(ctx,{
+type:"bar",
+data:{
+labels:data.map(d=>d.month),
+datasets:[
+{
+label:"Anthony",
+data:data.map(d=>d.p1)
+},
+{
+label:"Sam",
+data:data.map(d=>d.p2)
+}
+]
+}
+})
 
-  const Tt=({active,payload,label})=>{if(!active||!payload?.length)return null;return(<div style={{background:'white',border:'1px solid var(--border)',borderRadius:8,padding:'10px 14px',fontSize:13}}><p style={{fontWeight:600,marginBottom:4}}>{label}</p>{payload.map((p,i)=><p key={i} style={{color:p.fill||p.color}}>{p.name}: ${(p.value||0).toFixed(2)}</p>)}</div>);};
-  const PieTt=({active,payload})=>{if(!active||!payload?.length)return null;const d=payload[0];const pct=d.payload?.percent;return(<div style={{background:'white',border:'1px solid var(--border)',borderRadius:8,padding:'10px 14px',fontSize:13}}><p style={{fontWeight:600,color:d.payload.fill,marginBottom:2}}>{d.name}</p><p>${(d.value||0).toFixed(2)}</p>{pct!=null&&!isNaN(pct)&&<p style={{color:'var(--text3)'}}>{(pct*100).toFixed(1)}%</p>}</div>);};
-
-  return(<div>
-    <div className="page-header"><div><h2>Dashboard</h2><p>Overview of your shared account</p></div></div>
-    <div className="filter-row">
-      <I n="filter" s={14}/>
-      <select className="fsel" value={fy} onChange={e=>{setFy(e.target.value);setFm('');}}><option value="">All years</option>{(sum.available_years||[]).map(y=><option key={y} value={y}>{y}</option>)}</select>
-      {fy&&<select className="fsel" value={fm} onChange={e=>setFm(e.target.value)}><option value="">All months</option>{months.map((m,i)=><option key={i+1} value={String(i+1).padStart(2,'0')}>{m}</option>)}</select>}
-      <select className="fsel" value={fc} onChange={e=>setFc(e.target.value)}><option value="">All categories</option>{cats.map(c=><option key={c} value={c}>{c}</option>)}</select>
-      {(fy||fm||fc)&&<button className="btn btn-ghost btn-sm" onClick={()=>{setFy('');setFm('');setFc('');}}>Clear</button>}
-    </div>
-    {sum.pending_count>0&&<div className="pending-banner"><I n="warn" s={16}/><span>{sum.pending_count} transaction{sum.pending_count!==1?'s':''} pending split</span></div>}
-    <div className="stat-grid">
-      <div className="stat-card"><div className="stat-label">Shared Balance</div><div className={`stat-value ${sum.shared_balance>=0?'positive':'negative'}`}>{fmt(sum.shared_balance)}</div><div className="stat-sub">Incl. starting balance</div></div>
-      <div className="stat-card"><div className="stat-label">{settings.person1_name}</div><div className={`stat-value ${sum.person1_balance>=0?'positive':'negative'}`}>{fmt(sum.person1_balance)}</div><div className="stat-sub">Cumulative share</div></div>
-      <div className="stat-card"><div className="stat-label">{settings.person2_name}</div><div className={`stat-value ${sum.person2_balance>=0?'positive':'negative'}`}>{fmt(sum.person2_balance)}</div><div className="stat-sub">Cumulative share</div></div>
-      {sum.pending_count>0&&<div className="stat-card"><div className="stat-label">Pending</div><div className="stat-value warn">{sum.pending_count}</div><div className="stat-sub">Need split</div></div>}
-    </div>
-    {/* Charts */}
-    <div style={{marginBottom:16}}>
-      <div className="card card-padded">
-        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8,flexWrap:'wrap',gap:8}}>
-          <div className="sec-title" style={{marginTop:0,marginBottom:0}}>Monthly Cash Flow</div>
-          <div style={{display:'flex',gap:6,alignItems:'center',fontSize:12}}>
-            <span style={{color:'var(--text3)'}}>Y:</span>
-            <input type="number" placeholder="min" value={yMin} onChange={e=>setYMin(e.target.value)} style={{width:70,padding:'3px 6px',border:'1px solid var(--border)',borderRadius:4,fontSize:12}}/>
-            <span style={{color:'var(--text3)'}}>–</span>
-            <input type="number" placeholder="max" value={yMax} onChange={e=>setYMax(e.target.value)} style={{width:70,padding:'3px 6px',border:'1px solid var(--border)',borderRadius:4,fontSize:12}}/>
-            {(yMin||yMax)&&<button onClick={()=>{setYMin('');setYMax('');}} style={{border:'none',background:'none',cursor:'pointer',color:'var(--text3)',fontSize:11}}>✕</button>}
-          </div>
-        </div>
-        <p style={{fontSize:11.5,color:'var(--text3)',marginBottom:10}}>Bars = income &amp; expenses magnitude; line = net monthly surplus/deficit.</p>
-        <Recharts.ResponsiveContainer width="100%" height={220}>
-          <Recharts.ComposedChart data={monthlyData}>
-            <Recharts.CartesianGrid strokeDasharray="3 3" stroke="var(--border)"/>
-            <Recharts.XAxis dataKey="month" tick={{fontSize:11,fill:'var(--text3)'}} axisLine={false} tickLine={false}/>
-            <Recharts.YAxis tick={{fontSize:10,fill:'var(--text3)'}} axisLine={false} tickLine={false} tickFormatter={v=>`$${v}`} width={60} domain={[yMin!==''?Number(yMin):'auto',yMax!==''?Number(yMax):'auto']}/>
-            <Recharts.Tooltip content={<Tt/>}/>
-            <Recharts.Legend wrapperStyle={{fontSize:12}}/>
-            <Recharts.Bar dataKey="Income" fill="#1a5276" radius={[3,3,0,0]} opacity={0.7}/>
-            <Recharts.Bar dataKey="Expenses" fill="#c0392b" radius={[3,3,0,0]} opacity={0.7}/>
-            <Recharts.Line type="monotone" dataKey="Net" stroke="#2d6a4f" strokeWidth={2.5} dot={{r:3}} activeDot={{r:5}}/>
-          </Recharts.ComposedChart>
-        </Recharts.ResponsiveContainer>
-      </div>
-    </div>
-
-    {/* Balance history */}
-    {balHistory.length>1&&<div className="card card-padded" style={{marginBottom:16}}>
-      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8,flexWrap:'wrap',gap:8}}>
-        <div className="sec-title" style={{marginTop:0,marginBottom:0}}>Account Balance Over Time</div>
-        <div style={{display:'flex',gap:6,alignItems:'center',fontSize:12}}>
-          <span style={{color:'var(--text3)'}}>Y:</span>
-          <input type="number" placeholder="min" value={byMin} onChange={e=>setByMin(e.target.value)} style={{width:70,padding:'3px 6px',border:'1px solid var(--border)',borderRadius:4,fontSize:12}}/>
-          <span style={{color:'var(--text3)'}}>–</span>
-          <input type="number" placeholder="max" value={byMax} onChange={e=>setByMax(e.target.value)} style={{width:70,padding:'3px 6px',border:'1px solid var(--border)',borderRadius:4,fontSize:12}}/>
-          {(byMin||byMax)&&<button onClick={()=>{setByMin('');setByMax('');}} style={{border:'none',background:'none',cursor:'pointer',color:'var(--text3)',fontSize:11}}>✕</button>}
-        </div>
-      </div>
-      <Recharts.ResponsiveContainer width="100%" height={220}>
-        <Recharts.LineChart data={balHistory}>
-          <Recharts.CartesianGrid strokeDasharray="3 3" stroke="var(--border)"/>
-          <Recharts.XAxis dataKey="date" tick={{fontSize:10,fill:'var(--text3)'}} axisLine={false} tickLine={false} interval="preserveStartEnd"/>
-          <Recharts.YAxis tick={{fontSize:10,fill:'var(--text3)'}} axisLine={false} tickLine={false} tickFormatter={v=>`$${v}`} width={65} domain={[byMin!==''?Number(byMin):'auto',byMax!==''?Number(byMax):'auto']}/>
-          <Recharts.Tooltip content={({active,payload,label})=>{if(!active||!payload?.length)return null;return(<div style={{background:'white',border:'1px solid var(--border)',borderRadius:8,padding:'10px 14px',fontSize:12.5}}><p style={{fontWeight:600,marginBottom:4,fontSize:11.5,color:'var(--text3)'}}>{label}</p>{payload.map((p,i)=><p key={i} style={{color:p.stroke}}>{p.name}: <strong>${(p.value||0).toFixed(2)}</strong></p>)}</div>);}}/>
-          <Recharts.Legend wrapperStyle={{fontSize:12}}/>
-          <Recharts.Line type="monotone" dataKey="Shared" stroke="#2d6a4f" strokeWidth={2} dot={false}/>
-          <Recharts.Line type="monotone" dataKey={settings.person1_name} stroke="#1a5276" strokeWidth={1.5} dot={false} strokeDasharray="4 2"/>
-          <Recharts.Line type="monotone" dataKey={settings.person2_name} stroke="#7b241c" strokeWidth={1.5} dot={false} strokeDasharray="4 2"/>
-        </Recharts.LineChart>
-      </Recharts.ResponsiveContainer>
-    </div>}
-
-    {/* Spending by category - table */}
-    <div className="card card-padded" style={{marginBottom:16}}>
-      <div className="sec-title" style={{marginTop:0}}>Spending by Category</div>
-      {catData.length===0?<div className="empty-state" style={{padding:16}}>No spending data</div>:(
-        <table style={{width:'100%',fontSize:13,borderCollapse:'collapse'}}>
-          <thead><tr>
-            <th style={{textAlign:'left',padding:'6px 10px',borderBottom:'1px solid var(--border)',color:'var(--text3)',fontSize:11.5,textTransform:'uppercase'}}>Category</th>
-            <th style={{textAlign:'right',padding:'6px 10px',borderBottom:'1px solid var(--border)',color:'var(--text3)',fontSize:11.5,textTransform:'uppercase'}}>Total</th>
-            <th style={{textAlign:'right',padding:'6px 10px',borderBottom:'1px solid var(--border)',color:'var(--text3)',fontSize:11.5,textTransform:'uppercase'}}>{settings.person1_name}</th>
-            <th style={{textAlign:'right',padding:'6px 10px',borderBottom:'1px solid var(--border)',color:'var(--text3)',fontSize:11.5,textTransform:'uppercase'}}>{settings.person2_name}</th>
-            <th style={{padding:'6px 10px',borderBottom:'1px solid var(--border)',minWidth:120}}></th>
-          </tr></thead>
-          <tbody>{catData.map((d,i)=>{const tot=Object.values(sum.category_totals||{}).reduce((a,b)=>a+b,0)||1;const pct=d.value/tot;const p1v=(sum.category_totals_p1||{})[d.name]||0;const p2v=(sum.category_totals_p2||{})[d.name]||0;return(
-            <tr key={d.name} style={{background:i%2===0?'white':'var(--surface2)'}}>
-              <td style={{padding:'7px 10px',borderBottom:'1px solid var(--border)'}}><span style={{display:'inline-block',width:9,height:9,borderRadius:'50%',background:COLORS[i%COLORS.length],marginRight:7,verticalAlign:'middle'}}></span>{d.name}</td>
-              <td style={{padding:'7px 10px',borderBottom:'1px solid var(--border)',textAlign:'right',fontFamily:'DM Mono',fontSize:12.5}}>${d.value.toFixed(2)}</td>
-              <td style={{padding:'7px 10px',borderBottom:'1px solid var(--border)',textAlign:'right',fontFamily:'DM Mono',fontSize:12.5,color:'var(--text2)'}}>{p1v>0?`$${p1v.toFixed(2)}`:'—'}</td>
-              <td style={{padding:'7px 10px',borderBottom:'1px solid var(--border)',textAlign:'right',fontFamily:'DM Mono',fontSize:12.5,color:'var(--text2)'}}>{p2v>0?`$${p2v.toFixed(2)}`:'—'}</td>
-              <td style={{padding:'7px 10px 7px 14px',borderBottom:'1px solid var(--border)'}}><div style={{height:7,borderRadius:4,background:'var(--border)',overflow:'hidden'}}><div style={{height:'100%',width:`${Math.min(pct*100,100)}%`,background:COLORS[i%COLORS.length],borderRadius:4}}/></div></td>
-            </tr>
-          );})}
-          <tr style={{fontWeight:600}}>
-            <td style={{padding:'8px 10px'}}>Total</td>
-            <td style={{padding:'8px 10px',textAlign:'right',fontFamily:'DM Mono',fontSize:12.5}}>${Object.values(sum.category_totals||{}).reduce((a,b)=>a+b,0).toFixed(2)}</td>
-            <td style={{padding:'8px 10px',textAlign:'right',fontFamily:'DM Mono',fontSize:12.5,color:'var(--text2)'}}>${Object.values(sum.category_totals_p1||{}).reduce((a,b)=>a+b,0).toFixed(2)}</td>
-            <td style={{padding:'8px 10px',textAlign:'right',fontFamily:'DM Mono',fontSize:12.5,color:'var(--text2)'}}>${Object.values(sum.category_totals_p2||{}).reduce((a,b)=>a+b,0).toFixed(2)}</td>
-            <td></td>
-          </tr>
-          </tbody>
-        </table>
-      )}
-    </div>
-
-    {personData.length>0&&<div className="card card-padded" style={{marginBottom:16}}>
-      <div className="sec-title" style={{marginTop:0}}>Monthly Income per Person</div>
-      <Recharts.ResponsiveContainer width="100%" height={180}>
-        <Recharts.BarChart data={personData} barGap={4}>
-          <Recharts.CartesianGrid strokeDasharray="3 3" stroke="var(--border)"/>
-          <Recharts.XAxis dataKey="month" tick={{fontSize:11,fill:'var(--text3)'}} axisLine={false} tickLine={false}/>
-          <Recharts.YAxis tick={{fontSize:10,fill:'var(--text3)'}} axisLine={false} tickLine={false} tickFormatter={v=>`$${v}`} width={55}/>
-          <Recharts.Tooltip content={<Tt/>}/>
-          <Recharts.Legend wrapperStyle={{fontSize:12}}/>
-          <Recharts.Bar dataKey={settings.person1_name} fill={COLORS[1]} radius={[3,3,0,0]}/>
-          <Recharts.Bar dataKey={settings.person2_name} fill={COLORS[0]} radius={[3,3,0,0]}/>
-        </Recharts.BarChart>
-      </Recharts.ResponsiveContainer>
-    </div>}
-    <div className="balance-grid">
-      <div className="balance-card p1"><div className="balance-name">{settings.person1_name}</div><div className="balance-amount">{fmt(sum.person1_balance)}</div><div className="stat-sub" style={{marginTop:4}}>Cumulative share (filtered)</div></div>
-      <div className="balance-card p2"><div className="balance-name">{settings.person2_name}</div><div className="balance-amount">{fmt(sum.person2_balance)}</div><div className="stat-sub" style={{marginTop:4}}>Cumulative share (filtered)</div></div>
-    </div>
-  </div>);
 }
 
-// ── Transactions ──────────────────────────────────────────────────────────────
-const DW={chk:36,date:110,vd:100,merchant:190,cat:110,notes:150,amt:100,p1:95,p2:95,split:65,sbal:110,act:72};
-function Transactions({settings,categories}){
-  const [data,setData]=useState({transactions:[],total:0,all_ids:[]});
-  const [search,setSearch]=useState('');
-  const [modal,setModal]=useState(null);
-  const [toast,setToast]=useState('');
-  const [page,setPage]=useState(0);
-  const [pageSize,setPageSize]=useState(50);
-  const [sel,setSel]=useState(new Set());
-  const [selAll,setSelAll]=useState(false);
-  const [sc,setSc]=useState('date');const [sd,setSd]=useState('desc');
-  const [cw,setCw]=useState(DW);
-  const [cf,setCf]=useState({});
-  const [runBal,setRunBal]=useState({});
+load()
 
-  const buildUrl=useCallback((ov={})=>{
-    const o={page,pageSize,search,sc,sd,cf,...ov};
-    let u=`${API}/api/transactions?limit=${o.pageSize}&offset=${o.page*o.pageSize}&sort_col=${o.sc}&sort_dir=${o.sd}`;
-    if(o.search)u+=`&search=${encodeURIComponent(o.search)}`;
-    const f=o.cf;
-    if(f.date?.dateFrom)u+=`&date_from=${f.date.dateFrom}`;
-    if(f.date?.dateTo)u+=`&date_to=${f.date.dateTo}`;
-    if(f.merchant?.values?.length)u+=`&merchants=${f.merchant.values.join('|')}`;
-    if(f.cat?.values?.length)u+=`&categories=${f.cat.values.join('|')}`;
-    if(f.merchant?.text&&!f.merchant?.values?.length)u+=`&search=${encodeURIComponent(f.merchant.text)}`;
-    if(f.notes?.text)u+=`&search=${encodeURIComponent(f.notes.text)}`;
-    return u;
-  },[page,pageSize,search,sc,sd,cf]);
-
-  const load=useCallback(()=>{
-    authFetch(buildUrl()).then(r=>r.json()).then(d=>{setData(d);setSel(new Set());setSelAll(false);});
-    authFetch(`${API}/api/transactions/running-balance`).then(r=>r.json()).then(d=>{const m={};if(Array.isArray(d))d.forEach(r=>{m[r.id]=r;});setRunBal(m);});
-  },[buildUrl]);
-
-  useEffect(()=>{load();},[load]);
-
-  const sort=col=>{if(sc===col)setSd(d=>d==='asc'?'desc':'asc');else{setSc(col);setSd('asc');}setPage(0);};
-  const filter=(col,f)=>{setCf(x=>({...x,[col]:f}));setPage(0);};
-  const txs=data.transactions||[];const total=data.total||0;const tp=Math.ceil(total/pageSize)||1;
-
-  const save=async(fd)=>{
-    if(modal.tx?.id){await authFetch(`${API}/api/transactions/${modal.tx.id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(fd)});setToast('Updated');}
-    else{await authFetch(`${API}/api/transactions`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(fd)});setToast('Added');}
-    load();
-  };
-  const del=async()=>{await authFetch(`${API}/api/transactions/${modal.tx.id}`,{method:'DELETE'});setToast('Deleted');setModal(null);load();};
-  const bulkDel=async()=>{
-    const ids=selAll?data.all_ids:[...sel];
-    await authFetch(`${API}/api/transactions/bulk`,{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({ids})});
-    setToast(`Deleted ${ids.length}`);setModal(null);setSel(new Set());setSelAll(false);load();
-  };
-  const bulkEdit=async(b)=>{
-    const ids=selAll?data.all_ids:[...sel];
-    await authFetch(`${API}/api/transactions/bulk-edit`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({ids,...b})});
-    setToast(`Updated ${ids.length}`);setModal(null);setSel(new Set());setSelAll(false);load();
-  };
-  const selectAllPages=async()=>{
-    const u=buildUrl({page:0,pageSize:99999})+'&select_all=true';
-    const d=await authFetch(u).then(r=>r.json());
-    const ids=d.all_ids||[];
-    setSel(new Set(ids));
-    setSelAll(true);
-  };
-  const togSel=id=>setSel(s=>{const n=new Set(s);n.has(id)?n.delete(id):n.add(id);return n;});
-  const togPage=()=>setSel(s=>s.size===txs.length?new Set():new Set(txs.map(t=>t.id)));
-  const resize=(col,w)=>setCw(c=>({...c,[col]:w}));
-  // all_ids only populated when select_all=true fetch is done; fallback to sel.size
-  const selCount=selAll?(data.all_ids.length||sel.size):sel.size;
-  const hasF=Object.values(cf).some(f=>f&&(f.text||f.dateFrom||f.dateTo||(f.values&&f.values.length)));
-
-  const cols=[
-    {key:'date',label:'Desktop Date',sort:true,ct:'date',w:'date'},
-    {key:'value_date',label:'Mobile Date',sort:true,ct:'date',w:'vd'},
-    {key:'merchant',label:'Merchant',sort:true,ct:'values',w:'merchant'},
-    {key:'category',label:'Category',sort:true,ct:'values',w:'cat'},
-    {key:'notes',label:'Notes',sort:false,ct:'text',w:'notes'},
-    {key:'amount',label:'Amount',sort:true,ct:null,w:'amt'},
-    {key:'p1',label:settings.person1_name,sort:false,ct:null,w:'p1'},
-    {key:'p2',label:settings.person2_name,sort:false,ct:null,w:'p2'},
-    {key:'split',label:'Split',sort:false,ct:null,w:'split'},
-    {key:'sbal',label:'Balance',sort:false,ct:null,w:'sbal'},
-  ];
-
-  return(<div>
-    <div className="page-header">
-      <div><h2>Transactions</h2><p>{total.toLocaleString()} total</p></div>
-      <div style={{display:'flex',gap:8}}>
-        {hasF&&<button className="btn btn-secondary btn-sm" onClick={()=>{setCf({});setPage(0);}}>Clear filters</button>}
-        <button className="btn btn-primary" onClick={()=>setModal({type:'add'})}><I n="plus" s={14}/>Add</button>
-      </div>
-    </div>
-    <div className="search-bar">
-      <div className="search-wrap"><I n="search" s={14}/><input className="search-input" placeholder="Search…" value={search} onChange={e=>{setSearch(e.target.value);setPage(0);}}/></div>
-      <div style={{marginLeft:'auto',display:'flex',alignItems:'center',gap:8}}>
-        <span style={{fontSize:13,color:'var(--text3)'}}>Per page:</span>
-        <select className="fsel" value={pageSize} onChange={e=>{setPageSize(Number(e.target.value));setPage(0);}}>
-          {[25,50,100,200,500,1000].map(n=><option key={n} value={n}>{n}</option>)}
-        </select>
-      </div>
-    </div>
-    {selCount>0&&<div className="bulk-bar">
-      <I n="warn" s={15}/>
-      <span>{selCount} selected</span>
-      {!selAll&&total>txs.length&&<button className="btn btn-secondary btn-sm" onClick={selectAllPages}>Select all {total}</button>}
-      {selAll&&<span style={{fontSize:12}}>(all {total} pages)</span>}
-      <button className="btn btn-secondary btn-sm" onClick={()=>setModal({type:'bulkedit'})}><I n="edit" s={13}/>Edit</button>
-      <button className="btn btn-danger btn-sm" onClick={()=>setModal({type:'bulkdel'})}><I n="trash" s={13}/>Delete</button>
-      <button className="btn btn-ghost btn-sm" onClick={()=>{setSel(new Set());setSelAll(false);}}>Deselect</button>
-    </div>}
-    <div className="card">
-      <div className="table-outer">
-        <table style={{minWidth:900}}>
-          <thead><tr>
-            <th style={{width:cw.chk}}><div className="th-inner"><input type="checkbox" checked={txs.length>0&&sel.size===txs.length} onChange={togPage}/></div></th>
-            {cols.map(c=><RsTh key={c.key} colKey={c.key} label={c.label} width={cw[c.w]||100} onResize={w=>resize(c.w,w)} sortCol={sc} sortDir={sd} onSort={c.sort?sort:null} colType={c.ct} colFilter={cf[c.key]} onFilter={filter}/>)}
-            <th style={{width:cw.act}}><div className="th-inner">Actions</div></th>
-          </tr></thead>
-          <tbody>
-            {txs.length===0&&<tr><td colSpan={11}><div className="empty-state"><I n="list" s={32}/><p>No transactions found</p></div></td></tr>}
-            {txs.map(tx=>(
-              <tr key={tx.id} className={sel.has(tx.id)?'sel':''}>
-                <td style={{width:cw.chk}}><input type="checkbox" checked={sel.has(tx.id)} onChange={()=>togSel(tx.id)}/></td>
-                <td style={{width:cw.date}} className="mono">{tx.date}</td>
-                <td style={{width:cw.vd}} className="mono">{tx.value_date?tx.value_date:<span className="badge badge-pending">Pending</span>}</td>
-                <td style={{width:cw.merchant,fontWeight:500}}>{tx.merchant}</td>
-                <td style={{width:cw.cat}}><span className={`badge ${tx.is_transfer?'badge-transfer':tx.is_starting_balance?'badge-start':'badge-cat'}`}>{tx.category}</span></td>
-                <td style={{width:cw.notes,color:'var(--text3)',fontSize:12.5}}>{tx.notes||'—'}</td>
-                <td style={{width:cw.amt,textAlign:'right'}} className={`mono ${tx.amount<0?'amt-neg':'amt-pos'}`}>{fmt(tx.amount)}</td>
-                <td style={{width:cw.p1,textAlign:'right'}} className="mono">{tx.is_pending?<span className="badge badge-pending">Pending</span>:tx.is_transfer||tx.is_starting_balance?'—':fmtAbs(tx.person1_amount)}</td>
-                <td style={{width:cw.p2,textAlign:'right'}} className="mono">{tx.is_pending?<span className="badge badge-pending">Pending</span>:tx.is_transfer||tx.is_starting_balance?'—':fmtAbs(tx.person2_amount)}</td>
-                <td style={{width:cw.split,textAlign:'right',fontFamily:'DM Mono',fontSize:12,color:'var(--text3)'}}>{tx.is_transfer||tx.is_starting_balance||tx.is_pending?'—':`${Math.round(tx.person1_pct*100)}/${Math.round(tx.person2_pct*100)}`}</td>
-                <td style={{width:cw.sbal,textAlign:'right'}} className={`mono ${(runBal[tx.id]?.shared_balance||0)>=0?'amt-pos':'amt-neg'}`}>{runBal[tx.id]?fmtAbs(runBal[tx.id].shared_balance):'—'}</td>
-                <td style={{width:cw.act}}><div style={{display:'flex',gap:3,justifyContent:'flex-end'}}>
-                  <button className="btn btn-ghost btn-sm" onClick={()=>setModal({type:'edit',tx})}><I n="edit" s={13}/></button>
-                  <button className="btn btn-ghost btn-sm" style={{color:'var(--danger)'}} onClick={()=>setModal({type:'del',tx})}><I n="trash" s={13}/></button>
-                </div></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      <div className="pagination">
-        <span style={{color:'var(--text3)'}}>Showing {page*pageSize+1}–{Math.min((page+1)*pageSize,total)} of {total}</span>
-        <div style={{display:'flex',gap:5}}>
-          <button className="btn btn-secondary btn-sm" onClick={()=>setPage(0)} disabled={page===0}>«</button>
-          <button className="btn btn-secondary btn-sm" onClick={()=>setPage(p=>p-1)} disabled={page===0}>← Prev</button>
-          <span style={{padding:'5px 8px'}}>Page {page+1}/{tp}</span>
-          <button className="btn btn-secondary btn-sm" onClick={()=>setPage(p=>p+1)} disabled={page+1>=tp}>Next →</button>
-          <button className="btn btn-secondary btn-sm" onClick={()=>setPage(tp-1)} disabled={page+1>=tp}>»</button>
-        </div>
-      </div>
-    </div>
-    {(modal?.type==='add'||modal?.type==='edit')&&<TxModal tx={modal.tx} onClose={()=>setModal(null)} onSave={save} settings={settings} categories={categories}/>}
-    {modal?.type==='del'&&<div className="overlay" onClick={e=>e.target===e.currentTarget&&setModal(null)}><div className="modal" style={{maxWidth:420}}><div className="mhdr"><h3>Delete Transaction</h3><button className="btn btn-ghost btn-sm" onClick={()=>setModal(null)}><I n="x"/></button></div><div className="mbody"><p style={{fontSize:14,color:'var(--text2)',marginBottom:8}}>Delete <strong>{modal.tx.merchant}</strong> ({fmtAbs(modal.tx.amount)} on {modal.tx.date})?</p><p style={{fontSize:13,color:'var(--danger)',fontWeight:500}}>This action cannot be undone.</p></div><div className="mfoot"><button className="btn btn-secondary" onClick={()=>setModal(null)}>Cancel</button><button className="btn btn-danger" onClick={del}>Delete permanently</button></div></div></div>}
-    {modal?.type==='bulkdel'&&<div className="overlay" onClick={e=>e.target===e.currentTarget&&setModal(null)}><div className="modal" style={{maxWidth:420}}><div className="mhdr"><h3>Delete {selCount} Transactions</h3><button className="btn btn-ghost btn-sm" onClick={()=>setModal(null)}><I n="x"/></button></div><div className="mbody"><p style={{fontSize:14,color:'var(--text2)',marginBottom:8}}>Delete <strong>{selCount} selected transactions</strong>?</p><p style={{fontSize:13,color:'var(--danger)',fontWeight:500}}>This action cannot be undone.</p></div><div className="mfoot"><button className="btn btn-secondary" onClick={()=>setModal(null)}>Cancel</button><button className="btn btn-danger" onClick={bulkDel}>Delete {selCount} permanently</button></div></div></div>}
-    {modal?.type==='bulkedit'&&<BulkEditModal count={selCount} categories={categories} settings={settings} onClose={()=>setModal(null)} onSave={bulkEdit}/>}
-    {toast&&<Toast msg={toast} onDone={()=>setToast('')}/>}
-  </div>);
-}
-
-// ── Import ────────────────────────────────────────────────────────────────────
-function ImportPage(){
-  const [file,setFile]=useState(null);
-  const [type,setType]=useState(null); // 'commbank'|'xlsx'
-  const [sessions,setSessions]=useState([]);
-  const [sessionLoaded,setSessionLoaded]=useState(false);
-  const loadSessions=()=>authFetch(`${API}/api/import/sessions`).then(r=>r.json()).then(setSessions);
-  useEffect(()=>{loadSessions();},[]);
-  const [parsing,setParsing]=useState(false);
-  const [review,setReview]=useState(null); // {rows,skipped}
-  const [result,setResult]=useState(null);
-  const [err,setErr]=useState('');
-  const [toast,setToast]=useState('');
-
-  const parse=async(f,t)=>{
-    setParsing(true);setErr('');setReview(null);setResult(null);
-    const fd=new FormData();fd.append('file',f);
-    const endpoint=t==='commbank'?'/api/import/commbank/parse':'/api/import/xlsx/parse';
-    try{const r=await authFetch(`${API}${endpoint}`,{method:'POST',body:fd});const d=await r.json();if(d.detail)setErr(d.detail);else setReview(d);}
-    catch{setErr('Parse failed.');}
-    setParsing(false);
-  };
-
-  const undoSession=async(id)=>{if(!window.confirm('Undo this import? This will delete all transactions from that batch.'))return;await authFetch(`${API}/api/import/sessions/${id}`,{method:'DELETE'});setToast('Import undone');loadSessions();};
-  const confirm=async(rows)=>{
-    const r=await authFetch(`${API}/api/import/confirm`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({rows})});
-    const d=await r.json();
-    setReview(null);setResult(d);setFile(null);setType(null);
-    setToast(`Imported ${d.imported} transactions`);
-    loadSessions();
-  };
-
-  const pick=(f,t)=>{setFile(f);setType(t);setReview(null);setResult(null);setErr('');};
-
-  return(<div>
-    <div className="page-header"><div><h2>Import</h2><p>Bring in data from CommBank or your spreadsheet</p></div></div>
-    {!review&&<div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
-      <div className="card card-padded">
-        <div className="sec-title" style={{marginTop:0}}>Import Spreadsheet (.xlsx)</div>
-        <ol style={{color:'var(--text2)',fontSize:13,lineHeight:2.2,paddingLeft:16,marginBottom:16}}><li>Use your existing <strong>transactions.xlsx</strong></li><li>Reads Date, Amount, splits, Merchant, Notes, Category</li><li>Existing splits preserved — blanks marked Pending</li><li>You'll review duplicates before confirming</li></ol>
-        <label className="upload-area" onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();pick(e.dataTransfer.files[0],'xlsx');}}>
-          <input type="file" accept=".xlsx" style={{display:'none'}} onChange={e=>pick(e.target.files[0],'xlsx')}/>
-          <I n="upload" s={26}/><p>{type==='xlsx'&&file?file.name:'Click or drag & drop'}</p><small>.xlsx files only</small>
-        </label>
-        {type==='xlsx'&&file&&!review&&<button className="btn btn-primary" style={{marginTop:12}} onClick={()=>parse(file,'xlsx')} disabled={parsing}>{parsing?'Parsing…':'Review Import'}</button>}
-      </div>
-      <div className="card card-padded">
-        <div className="sec-title" style={{marginTop:0}}>Import CommBank CSV</div>
-        <ol style={{color:'var(--text2)',fontSize:13,lineHeight:2.2,paddingLeft:16,marginBottom:16}}><li>Log in to <strong>NetBank</strong></li><li>Go to shared account → <strong>Transaction History</strong></li><li>Select date range → <strong>Export → CSV</strong></li><li>You'll review duplicates before confirming</li></ol>
-        <label className="upload-area" onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();pick(e.dataTransfer.files[0],'commbank');}}>
-          <input type="file" accept=".csv" style={{display:'none'}} onChange={e=>pick(e.target.files[0],'commbank')}/>
-          <I n="upload" s={26}/><p>{type==='commbank'&&file?file.name:'Click or drag & drop'}</p><small>CommBank CSV export</small>
-        </label>
-        {type==='commbank'&&file&&!review&&<button className="btn btn-primary" style={{marginTop:12}} onClick={()=>parse(file,'commbank')} disabled={parsing}>{parsing?'Parsing…':'Review Import'}</button>}
-      </div>
-    </div>}
-    {result&&<div style={{marginTop:16,padding:16,background:'var(--accent-light)',borderRadius:'var(--radius)',border:'1px solid #bdddd4'}}><p style={{fontWeight:600,color:'var(--accent)',marginBottom:4}}>✓ Import complete</p><p style={{fontSize:13,color:'var(--text2)'}}>{result.imported} imported, {result.skipped} skipped.</p><button className="btn btn-secondary btn-sm" style={{marginTop:8}} onClick={()=>setResult(null)}>Import another</button></div>}
-    {sessions.length>0&&!review&&<div className="card card-padded" style={{marginTop:20}}><div className="sec-title" style={{marginTop:0}}>Import History</div><p style={{fontSize:13,color:'var(--text2)',marginBottom:12}}>Undo removes all transactions from that import batch.</p><table style={{width:'100%',fontSize:13,borderCollapse:'collapse'}}><thead><tr><th style={{textAlign:'left',padding:'6px 10px',borderBottom:'1px solid var(--border)',color:'var(--text3)',fontSize:11.5,textTransform:'uppercase'}}>Date</th><th style={{textAlign:'left',padding:'6px 10px',borderBottom:'1px solid var(--border)',color:'var(--text3)',fontSize:11.5,textTransform:'uppercase'}}>Source</th><th style={{textAlign:'right',padding:'6px 10px',borderBottom:'1px solid var(--border)',color:'var(--text3)',fontSize:11.5,textTransform:'uppercase'}}>Count</th><th style={{padding:'6px 10px',borderBottom:'1px solid var(--border)'}}></th></tr></thead><tbody>{sessions.map(s=><tr key={s.id}><td style={{padding:'7px 10px',borderBottom:'1px solid var(--border)',fontFamily:'DM Mono',fontSize:12}}>{s.imported_at?.slice(0,16).replace('T',' ')}</td><td style={{padding:'7px 10px',borderBottom:'1px solid var(--border)',color:'var(--text2)'}}>{s.source||'—'}</td><td style={{padding:'7px 10px',borderBottom:'1px solid var(--border)',textAlign:'right'}}>{s.count}</td><td style={{padding:'7px 10px',borderBottom:'1px solid var(--border)',textAlign:'right'}}><button className="btn btn-danger btn-sm" onClick={()=>undoSession(s.id)}>Undo</button></td></tr>)}</tbody></table></div>}
-    {err&&<p style={{color:'var(--danger)',fontSize:13,marginTop:12}}>{err}</p>}
-    {review&&<ImportReviewModal rows={review.rows} skipped={review.skipped} onClose={()=>{setReview(null);}} onConfirm={confirm}/>}
-    {toast&&<Toast msg={toast} onDone={()=>setToast('')}/>}
-  </div>);
-}
-
-// ── Settings ──────────────────────────────────────────────────────────────────
-function SettingsPage({settings,onSave,categories,onCategoriesChange}){
-  const [names,setNames]=useState({person1_name:settings.person1_name,person2_name:settings.person2_name});
-  const [saved,setSaved]=useState(false);
-  const [p1bal,setP1bal]=useState('0');const [p2bal,setP2bal]=useState('0');
-  const [dupCfg,setDupCfg]=useState({dup_match_date:true,dup_match_amount:true,dup_match_merchant:true,dup_date_tolerance:3,dup_merchant_threshold:90});
-  const [newCat,setNewCat]=useState('');const [catErr,setCatErr]=useState('');
-  const [editCat,setEditCat]=useState(null);const [editVal,setEditVal]=useState('');
-  const [rules,setRules]=useState([]);
-  const [newRule,setNewRule]=useState({pattern:'',category:categories[0]||'',use_regex:false});
-  const [ruleErr,setRuleErr]=useState('');
-  const [sugg,setSugg]=useState([]);const [showSugg,setShowSugg]=useState(false);
-  const [preview,setPreview]=useState(null);
-  const [toast,setToast]=useState('');
-
-  useEffect(()=>{
-    loadRules();
-    authFetch(`${API}/api/settings`).then(r=>r.json()).then(d=>{
-      setP1bal(d.person1_starting_balance||'0');setP2bal(d.person2_starting_balance||'0');
-      setDupCfg({dup_match_date:d.dup_match_date!=='0',dup_match_amount:d.dup_match_amount!=='0',dup_match_merchant:d.dup_match_merchant!=='0',dup_date_tolerance:parseInt(d.dup_date_tolerance||'3'),dup_merchant_threshold:parseInt(d.dup_merchant_threshold||'90')});
-    });
-  },[]);
-
-  const loadRules=()=>authFetch(`${API}/api/rules`).then(r=>r.json()).then(setRules);
-  const saveNames=async()=>{await authFetch(`${API}/api/settings`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(names)});onSave(names);setSaved(true);setTimeout(()=>setSaved(false),2000);};
-  const saveBals=async()=>{await authFetch(`${API}/api/settings`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({person1_starting_balance:parseFloat(p1bal)||0,person2_starting_balance:parseFloat(p2bal)||0})});setToast('Starting balances saved');};
-  const saveDup=async()=>{await authFetch(`${API}/api/settings`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({dup_match_date:dupCfg.dup_match_date?'1':'0',dup_match_amount:dupCfg.dup_match_amount?'1':'0',dup_match_merchant:dupCfg.dup_match_merchant?'1':'0',dup_date_tolerance:String(dupCfg.dup_date_tolerance),dup_merchant_threshold:String(dupCfg.dup_merchant_threshold)})});setToast('Duplicate settings saved');};
-  const addCat=async()=>{if(!newCat.trim()){setCatErr('Name required.');return;}const r=await authFetch(`${API}/api/categories`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:newCat.trim()})});if(r.ok){setNewCat('');setCatErr('');onCategoriesChange();setToast('Category added');}else{const d=await r.json();setCatErr(d.detail||'Error');}};
-  const delCat=async n=>{await authFetch(`${API}/api/categories/${encodeURIComponent(n)}`,{method:'DELETE'});onCategoriesChange();setToast(`"${n}" deleted`);};
-  const renameCat=async()=>{if(!editVal.trim())return;await authFetch(`${API}/api/categories/${encodeURIComponent(editCat)}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:editVal.trim()})});setEditCat(null);onCategoriesChange();setToast('Renamed');};
-  const addRule=async()=>{if(!newRule.pattern.trim()){setRuleErr('Pattern required.');return;}const r=await authFetch(`${API}/api/rules`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(newRule)});if(r.ok){setNewRule({pattern:'',category:categories[0]||'',use_regex:false});setRuleErr('');loadRules();setToast('Rule added');}else{const d=await r.json();setRuleErr(d.detail||'Error');}};
-  const addSugg=async s=>{await authFetch(`${API}/api/rules`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pattern:s.pattern,category:s.category,use_regex:false})});loadRules();setSugg(p=>p.filter(x=>x.pattern!==s.pattern));setToast('Rule added');};
-  const delRule=async id=>{await authFetch(`${API}/api/rules/${id}`,{method:'DELETE'});loadRules();setToast('Rule deleted');};
-  const togRule=async(id,en)=>{await authFetch(`${API}/api/rules/${id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({enabled:en?1:0})});loadRules();};
-  const previewApply=async()=>{const c=await authFetch(`${API}/api/rules/preview`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({scope:'pending'})}).then(r=>r.json());if(!c.length){setToast('No pending transactions would change.');return;}setPreview(c);};
-  const applySelected=async ids=>{const r=await authFetch(`${API}/api/rules/apply`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ids})}).then(r=>r.json());setPreview(null);setToast(`Updated ${r.updated} transactions`);};
-  const loadSugg=()=>{
-    Promise.all([
-      authFetch(`${API}/api/rules/suggestions`).then(r=>r.json()),
-      authFetch(`${API}/api/rules`).then(r=>r.json())
-    ]).then(([suggestions, existing])=>{
-      const existingPatterns=new Set((existing||[]).map(r=>r.pattern.toLowerCase()));
-      const filtered=(suggestions||[]).filter(s=>!existingPatterns.has(s.pattern.toLowerCase()));
-      setSugg(filtered);setShowSugg(true);
-    });
-  };
-
-  const exportXlsx=()=>{ window.location.href=`${API}/api/export/xlsx?token=${getToken()}`; };
-
-  return(<div>
-    <div className="page-header"><div><h2>Settings</h2></div><button className="btn btn-secondary" onClick={exportXlsx}><I n="download" s={14}/>Export to Excel</button></div>
-    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,alignItems:'start'}}>
-
-      <div className="card card-padded">
-        <div className="sec-title" style={{marginTop:0}}>People</div>
-        <div className="form-grid" style={{marginBottom:12}}>
-          <div className="form-group"><label className="form-label">Person 1</label><input className="form-input" value={names.person1_name} onChange={e=>setNames(n=>({...n,person1_name:e.target.value}))}/></div>
-          <div className="form-group"><label className="form-label">Person 2</label><input className="form-input" value={names.person2_name} onChange={e=>setNames(n=>({...n,person2_name:e.target.value}))}/></div>
-        </div>
-        <button className="btn btn-primary btn-sm" onClick={saveNames}>{saved?'✓ Saved':'Save Names'}</button>
-      </div>
-
-      <div className="card card-padded">
-        <div className="sec-title" style={{marginTop:0}}>Starting Balances</div>
-        <p style={{fontSize:13,color:'var(--text2)',marginBottom:12}}>Account balance per person at the point records begin.</p>
-        <div className="form-grid form-2" style={{marginBottom:10}}>
-          <div className="form-group"><label className="form-label">{names.person1_name||'Person 1'} ($)</label><input type="number" step="0.01" className="form-input" value={p1bal} onChange={e=>setP1bal(e.target.value)}/></div>
-          <div className="form-group"><label className="form-label">{names.person2_name||'Person 2'} ($)</label><input type="number" step="0.01" className="form-input" value={p2bal} onChange={e=>setP2bal(e.target.value)}/></div>
-        </div>
-        <button className="btn btn-primary btn-sm" onClick={saveBals}>Save Balances</button>
-      </div>
-
-      <div className="card card-padded">
-        <div className="sec-title" style={{marginTop:0}}>Duplicate Detection</div>
-        <p style={{fontSize:13,color:'var(--text2)',marginBottom:12}}>Transactions matching on all checked fields are flagged during import.</p>
-        <div style={{marginBottom:10}}>
-          {[['dup_match_date','Same date (± tolerance days)'],['dup_match_amount','Same amount'],['dup_match_merchant','Similar merchant name']].map(([k,lbl])=>(
-            <label key={k} style={{display:'flex',alignItems:'center',gap:8,fontSize:13.5,cursor:'pointer',marginBottom:8}}>
-              <input type="checkbox" checked={dupCfg[k]} onChange={e=>setDupCfg(d=>({...d,[k]:e.target.checked}))}/>{lbl}
-            </label>
-          ))}
-        </div>
-        <div className="form-grid form-2" style={{marginBottom:12}}>
-          <div className="form-group"><label className="form-label">Date tolerance (days ±)</label><input type="number" min="0" max="30" className="form-input" value={dupCfg.dup_date_tolerance} onChange={e=>setDupCfg(d=>({...d,dup_date_tolerance:parseInt(e.target.value)||0}))}/></div>
-          <div className="form-group"><label className="form-label">Merchant match % (0–100)</label><input type="number" min="0" max="100" className="form-input" value={dupCfg.dup_merchant_threshold} onChange={e=>setDupCfg(d=>({...d,dup_merchant_threshold:parseInt(e.target.value)||0}))}/></div>
-        </div>
-        <button className="btn btn-primary btn-sm" onClick={saveDup}>Save</button>
-      </div>
-
-      <div className="card card-padded">
-        <div className="sec-title" style={{marginTop:0}}>Categories</div>
-        <div className="tag-list" style={{marginBottom:12}}>
-          {categories.map(c=>(<div key={c} className="tag">{editCat===c?(<><input style={{border:'none',background:'transparent',fontFamily:'DM Sans',fontSize:12.5,width:90,outline:'none'}} value={editVal} onChange={e=>setEditVal(e.target.value)} onKeyDown={e=>{if(e.key==='Enter')renameCat();if(e.key==='Escape')setEditCat(null);}} autoFocus/><button onClick={renameCat} style={{color:'var(--accent)'}}>✓</button><button onClick={()=>setEditCat(null)}>✕</button></>):(<><span onClick={()=>{setEditCat(c);setEditVal(c);}} style={{cursor:'pointer'}}>{c}</span><button onClick={()=>delCat(c)}>×</button></>)}</div>))}
-        </div>
-        <div style={{display:'flex',gap:8}}><input className="form-input" placeholder="New category" value={newCat} onChange={e=>setNewCat(e.target.value)} onKeyDown={e=>e.key==='Enter'&&addCat()} style={{flex:1}}/><button className="btn btn-primary btn-sm" onClick={addCat}><I n="plus" s={13}/>Add</button></div>
-        {catErr&&<p style={{color:'var(--danger)',fontSize:12.5,marginTop:6}}>{catErr}</p>}
-        <p className="form-hint" style={{marginTop:8}}>Click a name to rename. Deleting moves transactions to "Other".</p>
-      </div>
-
-      <div className="card card-padded" style={{gridColumn:'1/-1'}}>
-        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12,flexWrap:'wrap',gap:8}}>
-          <div className="sec-title" style={{marginTop:0,marginBottom:0}}>Categorisation Rules</div>
-          <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
-            <button className="btn btn-secondary btn-sm" onClick={loadSugg}><I n="zap" s={13}/>Suggest rules</button>
-            <button className="btn btn-secondary btn-sm" onClick={previewApply}><I n="filter" s={13}/>Preview & apply to pending</button>
-          </div>
-        </div>
-        {showSugg&&sugg.length>0&&<div style={{marginBottom:14,padding:14,background:'var(--accent-light)',borderRadius:'var(--radius)',border:'1px solid #bdddd4'}}>
-          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
-            <p style={{fontSize:13,fontWeight:600,color:'var(--accent)'}}>Suggested rules from your transaction history</p>
-            <button className="btn btn-ghost btn-sm" onClick={()=>setShowSugg(false)}><I n="x" s={13}/></button>
-          </div>
-          {sugg.map(s=>(<div key={s.pattern} className="suggestion-row"><span style={{fontFamily:'DM Mono',fontSize:12.5,flex:1}}>{s.pattern}</span><span style={{color:'var(--text3)'}}>→</span><span style={{fontWeight:500,color:'var(--accent)',minWidth:80}}>{s.category}</span><span className="conf-badge">{Math.round(s.confidence*100)}%</span><span style={{fontSize:12,color:'var(--text3)',minWidth:50}}>{s.count} txns</span><button className="btn btn-primary btn-sm" onClick={()=>addSugg(s)}>Add</button></div>))}
-        </div>}
-        {showSugg&&sugg.length===0&&<p style={{fontSize:13,color:'var(--text3)',marginBottom:12}}>No new suggestions — good coverage already.</p>}
-        {rules.length===0&&<p style={{color:'var(--text3)',fontSize:13,marginBottom:12}}>No rules yet.</p>}
-        {rules.map(r=>(<div key={r.id} className="rule-row" style={{opacity:r.enabled?1:.5}}>
-          <span style={{fontSize:11.5,color:'var(--text3)',minWidth:55}}>If merchant</span>
-          <span style={{fontFamily:'DM Mono',fontSize:12,background:'var(--surface)',border:'1px solid var(--border)',padding:'2px 8px',borderRadius:4,flex:1,overflow:'hidden',textOverflow:'ellipsis'}}>{r.pattern}</span>
-          <span style={{color:'var(--text3)'}}>→</span>
-          <span style={{fontWeight:500,color:'var(--accent)',minWidth:80}}>{r.category}</span>
-          <span style={{fontSize:10.5,padding:'2px 7px',borderRadius:100,background:'var(--border)',color:'var(--text2)'}}>{r.use_regex?'regex':'contains'}</span>
-          <label style={{display:'flex',alignItems:'center',gap:4,fontSize:12,cursor:'pointer',color:'var(--text2)'}}><input type="checkbox" checked={!!r.enabled} onChange={e=>togRule(r.id,e.target.checked)}/>On</label>
-          <button className="btn btn-ghost btn-sm" style={{color:'var(--danger)'}} onClick={()=>delRule(r.id)}><I n="trash" s={13}/></button>
-        </div>))}
-        <div style={{display:'grid',gridTemplateColumns:'1fr auto 1fr auto auto',gap:8,alignItems:'end',marginTop:12,padding:12,background:'var(--surface2)',borderRadius:'var(--radius-sm)'}}>
-          <div className="form-group"><label className="form-label">Pattern</label><input className="form-input" placeholder="e.g. woolworths" value={newRule.pattern} onChange={e=>setNewRule(r=>({...r,pattern:e.target.value}))}/></div>
-          <span style={{paddingBottom:10,color:'var(--text3)',fontWeight:600}}>→</span>
-          <div className="form-group"><label className="form-label">Category</label><select className="form-select" value={newRule.category} onChange={e=>setNewRule(r=>({...r,category:e.target.value}))}>{categories.map(c=><option key={c}>{c}</option>)}</select></div>
-          <div className="form-group" style={{justifyContent:'flex-end',paddingBottom:10}}><label style={{display:'flex',alignItems:'center',gap:6,fontSize:13,cursor:'pointer'}}><input type="checkbox" checked={newRule.use_regex} onChange={e=>setNewRule(r=>({...r,use_regex:e.target.checked}))}/>Regex</label></div>
-          <div style={{paddingBottom:10}}><button className="btn btn-primary btn-sm" onClick={addRule}><I n="plus" s={13}/>Add</button></div>
-        </div>
-        {ruleErr&&<p style={{color:'var(--danger)',fontSize:12.5,marginTop:6}}>{ruleErr}</p>}
-        <p className="form-hint" style={{marginTop:8}}>Rules apply top-to-bottom to new/pending transactions. Toggle "On" to disable without deleting. "Preview & apply to pending" only touches transactions without a split.</p>
-      </div>
-    </div>
-    {preview&&<RulePreviewModal changes={preview} onClose={()=>setPreview(null)} onApply={applySelected}/>}
-    {toast&&<Toast msg={toast} onDone={()=>setToast('')}/>}
-  </div>);
-}
-
-// ── Error Boundary ────────────────────────────────────────────────────────────
-class EB extends React.Component{
-  constructor(p){super(p);this.state={err:null};}
-  static getDerivedStateFromError(e){return{err:e};}
-  render(){if(this.state.err)return <div style={{fontFamily:'sans-serif',padding:40,color:'#c0392b'}}><h2>Something went wrong</h2><pre style={{marginTop:12,fontSize:13,color:'#333',whiteSpace:'pre-wrap'}}>{this.state.err.message}</pre></div>;return this.props.children;}
-}
-
-// ── App ───────────────────────────────────────────────────────────────────────
-function App(){
-  const [authed,setAuthed]=useState(false);const [pwReq,setPwReq]=useState(false);const [ck,setCk]=useState(true);
-  const [page,setPage]=useState('dashboard');
-  const [settings,setSettings]=useState({person1_name:'Person 1',person2_name:'Person 2'});
-  const [categories,setCategories]=useState([]);
-
-  useEffect(()=>{
-    fetch(`${API}/api/auth/check`,{headers:{'Authorization':`Bearer ${getToken()}`}})
-      .then(r=>r.json()).then(d=>{setPwReq(d.password_required);if(d.ok)setAuthed(true);setCk(false);}).catch(()=>setCk(false));
-  },[]);
-
-  useEffect(()=>{
-    if(!authed)return;
-    authFetch(`${API}/api/settings`).then(r=>r.json()).then(setSettings);
-    loadCats();
-  },[authed]);
-
-  const loadCats=()=>authFetch(`${API}/api/categories`).then(r=>r.json()).then(setCategories);
-
-  if(ck)return null;
-  if(!authed&&pwReq)return <LockScreen onUnlock={()=>setAuthed(true)}/>;
-  if(!authed){
-    fetch(`${API}/api/auth/login`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:''})}).then(r=>r.json()).then(d=>{setToken(d.token);setAuthed(true);});
-    return null;
-  }
-
-  const nav=[{id:'dashboard',label:'Dashboard',icon:'home'},{id:'transactions',label:'Transactions',icon:'list'},{id:'import',label:'Import',icon:'upload'},{id:'settings',label:'Settings',icon:'settings'}];
-  return(<div className="app">
-    <aside className="sidebar">
-      <div className="sidebar-logo"><h1>Bank<span>ing</span></h1><div style={{fontSize:12,color:'var(--text3)',marginTop:2}}>{settings.person1_name} & {settings.person2_name}</div></div>
-      <nav className="sidebar-nav">{nav.map(n=><button key={n.id} className={`nav-item${page===n.id?' active':''}`} onClick={()=>setPage(n.id)}><I n={n.icon} s={15}/>{n.label}</button>)}</nav>
-    </aside>
-    <main className="main">
-      {page==='dashboard'&&<Dashboard settings={settings}/>}
-      {page==='transactions'&&<Transactions settings={settings} categories={categories}/>}
-      {page==='import'&&<ImportPage/>}
-      {page==='settings'&&<SettingsPage settings={settings} onSave={s=>setSettings(s)} categories={categories} onCategoriesChange={loadCats}/>}
-    </main>
-  </div>);
-}
-ReactDOM.createRoot(document.getElementById('root')).render(<EB><App/></EB>);
 </script>
+
 </body>
 </html>
