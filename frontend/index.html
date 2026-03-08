@@ -539,7 +539,7 @@ function Transactions({settings,categories}){
   return(<div>
     <div className="page-header">
       <div><h2>Transactions</h2><p>{total.toLocaleString()} total</p></div>
-      <div style={{display:'flex',gap:8'}}>
+      <div style={{display:'flex',gap:8}}>
         {hasF&&<button className="btn btn-secondary btn-sm" onClick={()=>{setCf({});setPage(0);}}>Clear filters</button>}
         <button className="btn btn-primary" onClick={()=>setModal({type:'add'})}><I n="plus" s={14}/>Add</button>
       </div>
