@@ -155,9 +155,9 @@ const {useState,useEffect,useCallback,useRef} = React;
 const API='';
 const getToken=()=>sessionStorage.getItem('bk_token');
 const setToken=t=>sessionStorage.setItem('bk_token',t);
-const authFetch = (url, opts = {}) => {
-  const h = { ...(opts.headers || {}), Authorization: `Bearer ${getToken()}` };
-  return fetch(url, { ...opts, headers: h });
+const authFetch=(url,opts={})=>{
+  const h={...(opts.headers||{}),'Authorization':`Bearer ${getToken()}`};
+  return fetch(url,{...opts,headers:h});
 };
 const fmt=n=>n==null?'—':`${n<0?'-':n>0?'+':''}$${Math.abs(n).toFixed(2)}`;
 const fmtAbs=n=>n==null?'—':`$${Math.abs(n).toFixed(2)}`;
