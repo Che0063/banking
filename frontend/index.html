@@ -360,7 +360,8 @@ function Dashboard({settings}){
   const [sum,setSum]=useState(null);
   const [fy,setFy]=useState('');const [fm,setFm]=useState('');const [fc,setFc]=useState('');
   const [cats,setCats]=useState([]);
-  const [chartView,setChartView]=useState('combined'); // 'combined'|'p1'|'p2'
+  const [chartView,setChartView]=useState('combined');
+  const [balHistory,setBalHistory]=useState([]);
 
   useEffect(()=>{authFetch(`${API}/api/categories`).then(r=>r.json()).then(setCats);},[]);
   useEffect(()=>{
@@ -369,34 +370,27 @@ function Dashboard({settings}){
     if([...p].length)url+='?'+p.toString();
     authFetch(url).then(r=>r.json()).then(setSum);
   },[fy,fm,fc]);
-
-  if(!sum)return <div style={{padding:40,color:'var(--text3)'}}>Loading…</div>;
-
-  const months=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-
-  // Spending by category data based on view
-  const catTotals=chartView==='p1'?sum.category_totals_p1:chartView==='p2'?sum.category_totals_p2:sum.category_totals;
-  const catData=Object.entries(catTotals||{}).map(([k,v])=>({name:k,value:v}));
-
-  // Monthly bar data
-  const monthlyData=Object.entries(sum.monthly).map(([k,v])=>({month:k.slice(5),Income:+(v.income||0).toFixed(2),Expenses:+(v.expenses||0).toFixed(2),Net:+((v.income||0)-(v.expenses||0)).toFixed(2)})).slice(-12);
-  const [balHistory,setBalHistory]=useState([]);
   useEffect(()=>{
     authFetch(`${API}/api/transactions/running-balance`).then(r=>r.json()).then(d=>{
       if(!Array.isArray(d)||d.length===0){setBalHistory([]);return;}
-      // Sample ~1 point per week to avoid overwhelming the chart
       const step=Math.max(1,Math.floor(d.length/120));
       const pts=[];
       for(let i=0;i<d.length;i+=step){
         const r=d[i];
         pts.push({date:r.date,Shared:r.shared_balance,[settings.person1_name]:r.person1_balance,[settings.person2_name]:r.person2_balance});
       }
-      // Always include last point
       const last=d[d.length-1];
       if(pts[pts.length-1]?.date!==last.date)pts.push({date:last.date,Shared:last.shared_balance,[settings.person1_name]:last.person1_balance,[settings.person2_name]:last.person2_balance});
       setBalHistory(pts);
     });
   },[]);
+
+  if(!sum)return <div style={{padding:40,color:'var(--text3)'}}>Loading…</div>;
+
+  const months=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const catTotals=chartView==='p1'?sum.category_totals_p1:chartView==='p2'?sum.category_totals_p2:sum.category_totals;
+  const catData=Object.entries(catTotals||{}).map(([k,v])=>({name:k,value:v}));
+  const monthlyData=Object.entries(sum.monthly).map(([k,v])=>({month:k.slice(5),Income:+(v.income||0).toFixed(2),Expenses:+(v.expenses||0).toFixed(2),Net:+((v.income||0)-(v.expenses||0)).toFixed(2)})).slice(-12);
   const personData=Object.entries(sum.monthly_person||{}).map(([k,v])=>({month:k.slice(5),[settings.person1_name]:+(v.p1||0).toFixed(2),[settings.person2_name]:+(v.p2||0).toFixed(2)})).slice(-12);
 
   const Tt=({active,payload,label})=>{if(!active||!payload?.length)return null;return(<div style={{background:'white',border:'1px solid var(--border)',borderRadius:8,padding:'10px 14px',fontSize:13}}><p style={{fontWeight:600,marginBottom:4}}>{label}</p>{payload.map((p,i)=><p key={i} style={{color:p.fill||p.color}}>{p.name}: ${(p.value||0).toFixed(2)}</p>)}</div>);};
