@@ -305,7 +305,22 @@ function ImportReviewModal({rows,skipped,onClose,onConfirm}){
 
   return(<div className="overlay"><div className="modal modal-xl"><div className="mhdr"><h3>Review Import — {rows.length} rows parsed</h3><button className="btn btn-ghost btn-sm" onClick={onClose}><I n="x"/></button></div>
   <div className="mbody" style={{padding:'12px 24px'}}>
-    {curBal&&<div style={{display:'flex',gap:16,marginBottom:14,padding:'10px 14px',background:'var(--surface2)',borderRadius:'var(--radius-sm)',fontSize:13,flexWrap:'wrap'}}><span style={{color:'var(--text3)'}}>Current balances:</span><span><strong>Shared:</strong> <span className={curBal.shared_balance>=0?'amt-pos':'amt-neg'}>{fmt(curBal.shared_balance)}</span></span><span><strong>Person 1:</strong> {fmt(curBal.person1_balance)}</span><span><strong>Person 2:</strong> {fmt(curBal.person2_balance)}</span></div>}
+    {curBal&&(()=>{
+    const toImport=rows.filter((_,i)=>actions[i]==='import');
+    const dShared=toImport.reduce((s,r)=>s+(r.amount||0),0);
+    const dP1=toImport.reduce((s,r)=>{if(r.person1_pct!=null)return s+r.person1_pct*(r.amount||0);return s;},0);
+    const dP2=toImport.reduce((s,r)=>{if(r.person2_pct!=null)return s+r.person2_pct*(r.amount||0);return s;},0);
+    const projShared=curBal.shared_balance+dShared;
+    const projP1=curBal.person1_balance+dP1;
+    const projP2=curBal.person2_balance+dP2;
+    return(<div style={{display:'flex',gap:14,marginBottom:14,padding:'10px 14px',background:'var(--surface2)',borderRadius:'var(--radius-sm)',fontSize:12.5,flexWrap:'wrap',alignItems:'center'}}>
+      <span style={{color:'var(--text3)',fontSize:12}}>After import ({importCount} rows):</span>
+      <span><strong>Shared:</strong> <span className={projShared>=0?'amt-pos':'amt-neg'}>{fmt(projShared)}</span></span>
+      <span><strong>P1:</strong> {fmt(projP1)}</span>
+      <span><strong>P2:</strong> {fmt(projP2)}</span>
+      <span style={{color:'var(--text3)',fontSize:11.5}}>({dShared>=0?'+':''}{dShared.toFixed(2)} net)</span>
+    </div>);
+  })()}
   {dups.length>0&&<div style={{background:'var(--warn-light)',border:'1px solid #fce4b2',borderRadius:'var(--radius-sm)',padding:'10px 14px',marginBottom:14}}>
       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:8}}>
         <span style={{fontSize:13,color:'var(--warn)',fontWeight:500}}><I n="warn" s={14}/> {dups.length} possible duplicate{dups.length!==1?'s':''} found (highlighted below)</span>
@@ -362,6 +377,8 @@ function Dashboard({settings}){
   const [cats,setCats]=useState([]);
   const [chartView,setChartView]=useState('combined');
   const [balHistory,setBalHistory]=useState([]);
+  const [yMin,setYMin]=useState('');const [yMax,setYMax]=useState('');
+  const [byMin,setByMin]=useState('');const [byMax,setByMax]=useState('');
 
   useEffect(()=>{authFetch(`${API}/api/categories`).then(r=>r.json()).then(setCats);},[]);
   useEffect(()=>{
@@ -415,15 +432,22 @@ function Dashboard({settings}){
     {/* Charts */}
     <div style={{marginBottom:16}}>
       <div className="card card-padded">
-        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12,flexWrap:'wrap',gap:8}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8,flexWrap:'wrap',gap:8}}>
           <div className="sec-title" style={{marginTop:0,marginBottom:0}}>Monthly Cash Flow</div>
-          <span style={{fontSize:12,color:'var(--text3)'}}>Line = net; bars = income &amp; expenses. Bars show direction of money — line shows whether you're up or down overall.</span>
+          <div style={{display:'flex',gap:6,alignItems:'center',fontSize:12}}>
+            <span style={{color:'var(--text3)'}}>Y:</span>
+            <input type="number" placeholder="min" value={yMin} onChange={e=>setYMin(e.target.value)} style={{width:70,padding:'3px 6px',border:'1px solid var(--border)',borderRadius:4,fontSize:12}}/>
+            <span style={{color:'var(--text3)'}}>–</span>
+            <input type="number" placeholder="max" value={yMax} onChange={e=>setYMax(e.target.value)} style={{width:70,padding:'3px 6px',border:'1px solid var(--border)',borderRadius:4,fontSize:12}}/>
+            {(yMin||yMax)&&<button onClick={()=>{setYMin('');setYMax('');}} style={{border:'none',background:'none',cursor:'pointer',color:'var(--text3)',fontSize:11}}>✕</button>}
+          </div>
         </div>
+        <p style={{fontSize:11.5,color:'var(--text3)',marginBottom:10}}>Bars = income &amp; expenses magnitude; line = net monthly surplus/deficit.</p>
         <Recharts.ResponsiveContainer width="100%" height={220}>
           <Recharts.ComposedChart data={monthlyData}>
             <Recharts.CartesianGrid strokeDasharray="3 3" stroke="var(--border)"/>
             <Recharts.XAxis dataKey="month" tick={{fontSize:11,fill:'var(--text3)'}} axisLine={false} tickLine={false}/>
-            <Recharts.YAxis tick={{fontSize:10,fill:'var(--text3)'}} axisLine={false} tickLine={false} tickFormatter={v=>`$${Math.abs(v)}`} width={55}/>
+            <Recharts.YAxis tick={{fontSize:10,fill:'var(--text3)'}} axisLine={false} tickLine={false} tickFormatter={v=>`$${v}`} width={60} domain={[yMin!==''?Number(yMin):'auto',yMax!==''?Number(yMax):'auto']}/>
             <Recharts.Tooltip content={<Tt/>}/>
             <Recharts.Legend wrapperStyle={{fontSize:12}}/>
             <Recharts.Bar dataKey="Income" fill="#1a5276" radius={[3,3,0,0]} opacity={0.7}/>
@@ -436,13 +460,22 @@ function Dashboard({settings}){
 
     {/* Balance history */}
     {balHistory.length>1&&<div className="card card-padded" style={{marginBottom:16}}>
-      <div className="sec-title" style={{marginTop:0}}>Account Balance Over Time</div>
-      <Recharts.ResponsiveContainer width="100%" height={200}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8,flexWrap:'wrap',gap:8}}>
+        <div className="sec-title" style={{marginTop:0,marginBottom:0}}>Account Balance Over Time</div>
+        <div style={{display:'flex',gap:6,alignItems:'center',fontSize:12}}>
+          <span style={{color:'var(--text3)'}}>Y:</span>
+          <input type="number" placeholder="min" value={byMin} onChange={e=>setByMin(e.target.value)} style={{width:70,padding:'3px 6px',border:'1px solid var(--border)',borderRadius:4,fontSize:12}}/>
+          <span style={{color:'var(--text3)'}}>–</span>
+          <input type="number" placeholder="max" value={byMax} onChange={e=>setByMax(e.target.value)} style={{width:70,padding:'3px 6px',border:'1px solid var(--border)',borderRadius:4,fontSize:12}}/>
+          {(byMin||byMax)&&<button onClick={()=>{setByMin('');setByMax('');}} style={{border:'none',background:'none',cursor:'pointer',color:'var(--text3)',fontSize:11}}>✕</button>}
+        </div>
+      </div>
+      <Recharts.ResponsiveContainer width="100%" height={220}>
         <Recharts.LineChart data={balHistory}>
           <Recharts.CartesianGrid strokeDasharray="3 3" stroke="var(--border)"/>
           <Recharts.XAxis dataKey="date" tick={{fontSize:10,fill:'var(--text3)'}} axisLine={false} tickLine={false} interval="preserveStartEnd"/>
-          <Recharts.YAxis tick={{fontSize:10,fill:'var(--text3)'}} axisLine={false} tickLine={false} tickFormatter={v=>`$${v}`} width={65}/>
-          <Recharts.Tooltip content={<Tt/>}/>
+          <Recharts.YAxis tick={{fontSize:10,fill:'var(--text3)'}} axisLine={false} tickLine={false} tickFormatter={v=>`$${v}`} width={65} domain={[byMin!==''?Number(byMin):'auto',byMax!==''?Number(byMax):'auto']}/>
+          <Recharts.Tooltip content={({active,payload,label})=>{if(!active||!payload?.length)return null;return(<div style={{background:'white',border:'1px solid var(--border)',borderRadius:8,padding:'10px 14px',fontSize:12.5}}><p style={{fontWeight:600,marginBottom:4,fontSize:11.5,color:'var(--text3)'}}>{label}</p>{payload.map((p,i)=><p key={i} style={{color:p.stroke}}>{p.name}: <strong>${(p.value||0).toFixed(2)}</strong></p>)}</div>);}}/>
           <Recharts.Legend wrapperStyle={{fontSize:12}}/>
           <Recharts.Line type="monotone" dataKey="Shared" stroke="#2d6a4f" strokeWidth={2} dot={false}/>
           <Recharts.Line type="monotone" dataKey={settings.person1_name} stroke="#1a5276" strokeWidth={1.5} dot={false} strokeDasharray="4 2"/>
@@ -621,7 +654,6 @@ function Transactions({settings,categories}){
           <thead><tr>
             <th style={{width:cw.chk}}><div className="th-inner"><input type="checkbox" checked={txs.length>0&&sel.size===txs.length} onChange={togPage}/></div></th>
             {cols.map(c=><RsTh key={c.key} colKey={c.key} label={c.label} width={cw[c.w]||100} onResize={w=>resize(c.w,w)} sortCol={sc} sortDir={sd} onSort={c.sort?sort:null} colType={c.ct} colFilter={cf[c.key]} onFilter={filter}/>)}
-            <th style={{width:cw.sbal}}><div className="th-inner">Balance</div></th>
             <th style={{width:cw.act}}><div className="th-inner">Actions</div></th>
           </tr></thead>
           <tbody>
@@ -638,7 +670,7 @@ function Transactions({settings,categories}){
                 <td style={{width:cw.p1,textAlign:'right'}} className="mono">{tx.is_pending?<span className="badge badge-pending">Pending</span>:tx.is_transfer||tx.is_starting_balance?'—':fmtAbs(tx.person1_amount)}</td>
                 <td style={{width:cw.p2,textAlign:'right'}} className="mono">{tx.is_pending?<span className="badge badge-pending">Pending</span>:tx.is_transfer||tx.is_starting_balance?'—':fmtAbs(tx.person2_amount)}</td>
                 <td style={{width:cw.split,textAlign:'right',fontFamily:'DM Mono',fontSize:12,color:'var(--text3)'}}>{tx.is_transfer||tx.is_starting_balance||tx.is_pending?'—':`${Math.round(tx.person1_pct*100)}/${Math.round(tx.person2_pct*100)}`}</td>
-                <td style={{width:cw.sbal,textAlign:'right'}} className={`mono ${runBal[tx.id]?.shared_balance>=0?'amt-pos':'amt-neg'}`}>{runBal[tx.id]?fmtAbs(runBal[tx.id].shared_balance):'—'}</td>
+                <td style={{width:cw.sbal,textAlign:'right'}} className={`mono ${(runBal[tx.id]?.shared_balance||0)>=0?'amt-pos':'amt-neg'}`}>{runBal[tx.id]?fmtAbs(runBal[tx.id].shared_balance):'—'}</td>
                 <td style={{width:cw.act}}><div style={{display:'flex',gap:3,justifyContent:'flex-end'}}>
                   <button className="btn btn-ghost btn-sm" onClick={()=>setModal({type:'edit',tx})}><I n="edit" s={13}/></button>
                   <button className="btn btn-ghost btn-sm" style={{color:'var(--danger)'}} onClick={()=>setModal({type:'del',tx})}><I n="trash" s={13}/></button>
@@ -767,7 +799,16 @@ function SettingsPage({settings,onSave,categories,onCategoriesChange}){
   const togRule=async(id,en)=>{await authFetch(`${API}/api/rules/${id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({enabled:en?1:0})});loadRules();};
   const previewApply=async()=>{const c=await authFetch(`${API}/api/rules/preview`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({scope:'pending'})}).then(r=>r.json());if(!c.length){setToast('No pending transactions would change.');return;}setPreview(c);};
   const applySelected=async ids=>{const r=await authFetch(`${API}/api/rules/apply`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ids})}).then(r=>r.json());setPreview(null);setToast(`Updated ${r.updated} transactions`);};
-  const loadSugg=()=>authFetch(`${API}/api/rules/suggestions`).then(r=>r.json()).then(d=>{setSugg(d);setShowSugg(true);});
+  const loadSugg=()=>{
+    Promise.all([
+      authFetch(`${API}/api/rules/suggestions`).then(r=>r.json()),
+      authFetch(`${API}/api/rules`).then(r=>r.json())
+    ]).then(([suggestions, existing])=>{
+      const existingPatterns=new Set((existing||[]).map(r=>r.pattern.toLowerCase()));
+      const filtered=(suggestions||[]).filter(s=>!existingPatterns.has(s.pattern.toLowerCase()));
+      setSugg(filtered);setShowSugg(true);
+    });
+  };
 
   const exportXlsx=()=>{ window.location.href=`${API}/api/export/xlsx?token=${getToken()}`; };
 

@@ -113,9 +113,11 @@ def init_db():
 init_db()
 
 # ── Auth ──────────────────────────────────────────────────────────────────────
-def check_auth(credentials: HTTPAuthorizationCredentials = Depends(security)):
+def check_auth(credentials: HTTPAuthorizationCredentials = Depends(security), token: str = None):
     if not APP_PASSWORD: return True
-    if credentials is None or credentials.credentials not in _valid_tokens:
+    # Accept token as query param for file downloads (browsers can't set headers for GET)
+    tok = (credentials.credentials if credentials else None) or token
+    if tok not in _valid_tokens:
         raise HTTPException(401, "Unauthorized")
     return True
 
@@ -329,6 +331,17 @@ def update_transaction(tx_id: int, tx: TransactionIn):
 
 @app.delete("/api/transactions/bulk", dependencies=[Depends(check_auth)])
 def bulk_delete(body: BulkDeleteIn):
+    if not body.ids: return {"deleted": 0}
+    conn = get_db()
+    ph = ",".join("?" * len(body.ids))
+    conn.execute(f"DELETE FROM transactions WHERE id IN ({ph})", body.ids)
+    deleted = conn.total_changes
+    conn.commit(); conn.close()
+    return {"deleted": deleted}
+
+@app.post("/api/transactions/bulk-delete", dependencies=[Depends(check_auth)])
+def bulk_delete_post(body: BulkDeleteIn):
+    """POST for bulk delete - DELETE+body is stripped by nginx."""
     if not body.ids: return {"deleted": 0}
     conn = get_db()
     ph = ",".join("?" * len(body.ids))
@@ -595,8 +608,12 @@ def update_settings(body: dict):
     conn.commit(); conn.close(); return {"ok": True}
 
 # ── Export ────────────────────────────────────────────────────────────────────
-@app.get("/api/export/xlsx", dependencies=[Depends(check_auth)])
-def export_xlsx():
+@app.get("/api/export/xlsx")
+def export_xlsx(token: str = None, credentials: HTTPAuthorizationCredentials = Depends(security)):
+    if APP_PASSWORD:
+        tok = (credentials.credentials if credentials else None) or token
+        if tok not in _valid_tokens:
+            raise HTTPException(401, "Unauthorized")
     try:
         import openpyxl
         from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
