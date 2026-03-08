@@ -74,6 +74,16 @@ def init_db():
         INSERT OR IGNORE INTO settings VALUES ('person2_name','Person 2');
         INSERT OR IGNORE INTO settings VALUES ('person1_starting_balance','0');
         INSERT OR IGNORE INTO settings VALUES ('person2_starting_balance','0');
+        CREATE TABLE IF NOT EXISTS import_sessions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            imported_at TEXT DEFAULT (datetime('now')),
+            source TEXT,
+            count INTEGER
+        );
+        CREATE TABLE IF NOT EXISTS import_session_ids (
+            session_id INTEGER,
+            transaction_id INTEGER
+        );
         INSERT OR IGNORE INTO settings VALUES ('dup_match_date','1');
         INSERT OR IGNORE INTO settings VALUES ('dup_match_amount','1');
         INSERT OR IGNORE INTO settings VALUES ('dup_match_merchant','1');
@@ -281,7 +291,8 @@ def list_transactions(
 
 @app.get("/api/transactions/column-values", dependencies=[Depends(check_auth)])
 def column_values(col: str):
-    if col not in {"merchant","category","date"}: raise HTTPException(400, "Invalid column")
+    safe = {"merchant","category","date","value_date"}
+    if col not in safe: raise HTTPException(400, "Invalid column")
     conn = get_db()
     rows = conn.execute(f"SELECT DISTINCT {col} FROM transactions ORDER BY {col} ASC").fetchall()
     conn.close()
@@ -351,6 +362,42 @@ def delete_transaction(tx_id: int):
     return {"ok": True}
 
 # ── Summary ───────────────────────────────────────────────────────────────────
+
+@app.get("/api/transactions/running-balance", dependencies=[Depends(check_auth)])
+def running_balance():
+    """Return all transactions with running shared/p1/p2 balances, chronological."""
+    conn = get_db()
+    s = {r["key"]: r["value"] for r in conn.execute("SELECT key,value FROM settings").fetchall()}
+    p1_start = float(s.get("person1_starting_balance", 0))
+    p2_start = float(s.get("person2_starting_balance", 0))
+    rows = conn.execute(
+        "SELECT id,date,amount,merchant,category,person1_pct,person2_pct,is_transfer,is_starting_balance "
+        "FROM transactions WHERE is_starting_balance=0 ORDER BY date ASC, id ASC"
+    ).fetchall()
+    conn.close()
+    shared_bal = p1_start + p2_start
+    p1_bal = p1_start
+    p2_bal = p2_start
+    result = []
+    for r in rows:
+        amt = r["amount"]
+        p1, p2 = r["person1_pct"], r["person2_pct"]
+        shared_bal += amt
+        if p1 is not None:
+            p1_bal += round(p1 * amt, 2)
+            p2_bal += round(p2 * amt, 2)
+        result.append({
+            "id": r["id"],
+            "date": r["date"],
+            "merchant": r["merchant"],
+            "category": r["category"],
+            "amount": amt,
+            "shared_balance": round(shared_bal, 2),
+            "person1_balance": round(p1_bal, 2),
+            "person2_balance": round(p2_bal, 2),
+        })
+    return result
+
 @app.get("/api/summary", dependencies=[Depends(check_auth)])
 def get_summary(year: int = None, month: int = None, category: str = None):
     conn = get_db()
@@ -738,6 +785,8 @@ class ImportConfirmIn(BaseModel):
 def confirm_import(body: ImportConfirmIn):
     conn = get_db()
     imported = skipped = 0
+    tx_ids = []
+    source = body.rows[0].get("_source","unknown") if body.rows else "unknown"
     for row in body.rows:
         if row.get("action") == "skip": skipped += 1; continue
         try:
@@ -748,7 +797,33 @@ def confirm_import(body: ImportConfirmIn):
                  row.get("person1_pct"), row.get("person2_pct"),
                  int(row.get("is_transfer", 0)))
             )
+            tx_ids.append(conn.execute("SELECT last_insert_rowid()").fetchone()[0])
             imported += 1
         except Exception: skipped += 1
+    if tx_ids:
+        conn.execute("INSERT INTO import_sessions (source, count) VALUES (?,?)", (source, len(tx_ids)))
+        session_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
+        for tid in tx_ids:
+            conn.execute("INSERT INTO import_session_ids VALUES (?,?)", (session_id, tid))
     conn.commit(); conn.close()
     return {"imported": imported, "skipped": skipped}
+
+@app.get("/api/import/sessions", dependencies=[Depends(check_auth)])
+def list_import_sessions():
+    conn = get_db()
+    rows = conn.execute("SELECT * FROM import_sessions ORDER BY id DESC LIMIT 20").fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+@app.delete("/api/import/sessions/{session_id}", dependencies=[Depends(check_auth)])
+def undo_import_session(session_id: int):
+    conn = get_db()
+    ids = [r[0] for r in conn.execute(
+        "SELECT transaction_id FROM import_session_ids WHERE session_id=?", (session_id,)).fetchall()]
+    if ids:
+        ph = ",".join("?" * len(ids))
+        conn.execute(f"DELETE FROM transactions WHERE id IN ({ph})", ids)
+    conn.execute("DELETE FROM import_session_ids WHERE session_id=?", (session_id,))
+    conn.execute("DELETE FROM import_sessions WHERE id=?", (session_id,))
+    conn.commit(); conn.close()
+    return {"deleted": len(ids)}

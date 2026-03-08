@@ -237,7 +237,7 @@ function ColFilter({col,colType,current,onApply,onClose}){
   const [vals,setVals]=useState([]);
   const ref=useRef();
   useEffect(()=>{
-    if(colType==='values'||colType==='date')authFetch(`${API}/api/transactions/column-values?col=${col}`).then(r=>r.json()).then(setVals);
+    if(colType==='values'||colType==='date')authFetch(`${API}/api/transactions/column-values?col=${col}`).then(r=>r.json()).then(d=>{setVals(Array.isArray(d)?d:[]);});
     const h=e=>{if(ref.current&&!ref.current.contains(e.target))onClose();};
     document.addEventListener('mousedown',h);return()=>document.removeEventListener('mousedown',h);
   },[]);
@@ -290,6 +290,8 @@ function ImportReviewModal({rows,skipped,onClose,onConfirm}){
     return m;
   });
   const [saving,setSaving]=useState(false);
+  const [curBal,setCurBal]=useState(null);
+  useEffect(()=>{authFetch(`${API}/api/summary`).then(r=>r.json()).then(d=>setCurBal(d));},[]);
   const setAction=(i,v)=>setActions(a=>({...a,[i]:v}));
   const setAllDups=v=>{const m={...actions};rows.forEach((r,i)=>{if(r.duplicate_of)m[i]=v;});setActions(m);};
   const importCount=Object.values(actions).filter(v=>v==='import').length;
@@ -303,7 +305,8 @@ function ImportReviewModal({rows,skipped,onClose,onConfirm}){
 
   return(<div className="overlay"><div className="modal modal-xl"><div className="mhdr"><h3>Review Import — {rows.length} rows parsed</h3><button className="btn btn-ghost btn-sm" onClick={onClose}><I n="x"/></button></div>
   <div className="mbody" style={{padding:'12px 24px'}}>
-    {dups.length>0&&<div style={{background:'var(--warn-light)',border:'1px solid #fce4b2',borderRadius:'var(--radius-sm)',padding:'10px 14px',marginBottom:14}}>
+    {curBal&&<div style={{display:'flex',gap:16,marginBottom:14,padding:'10px 14px',background:'var(--surface2)',borderRadius:'var(--radius-sm)',fontSize:13,flexWrap:'wrap'}}><span style={{color:'var(--text3)'}}>Current balances:</span><span><strong>Shared:</strong> <span className={curBal.shared_balance>=0?'amt-pos':'amt-neg'}>{fmt(curBal.shared_balance)}</span></span><span><strong>Person 1:</strong> {fmt(curBal.person1_balance)}</span><span><strong>Person 2:</strong> {fmt(curBal.person2_balance)}</span></div>}
+  {dups.length>0&&<div style={{background:'var(--warn-light)',border:'1px solid #fce4b2',borderRadius:'var(--radius-sm)',padding:'10px 14px',marginBottom:14}}>
       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:8}}>
         <span style={{fontSize:13,color:'var(--warn)',fontWeight:500}}><I n="warn" s={14}/> {dups.length} possible duplicate{dups.length!==1?'s':''} found (highlighted below)</span>
         <div style={{display:'flex',gap:8}}>
@@ -376,7 +379,24 @@ function Dashboard({settings}){
   const catData=Object.entries(catTotals||{}).map(([k,v])=>({name:k,value:v}));
 
   // Monthly bar data
-  const monthlyData=Object.entries(sum.monthly).map(([k,v])=>({month:k.slice(5),Income:+(v.income||0).toFixed(2),Expenses:+(v.expenses||0).toFixed(2)})).slice(-12);
+  const monthlyData=Object.entries(sum.monthly).map(([k,v])=>({month:k.slice(5),Income:+(v.income||0).toFixed(2),Expenses:+(v.expenses||0).toFixed(2),Net:+((v.income||0)-(v.expenses||0)).toFixed(2)})).slice(-12);
+  const [balHistory,setBalHistory]=useState([]);
+  useEffect(()=>{
+    authFetch(`${API}/api/transactions/running-balance`).then(r=>r.json()).then(d=>{
+      if(!Array.isArray(d)||d.length===0){setBalHistory([]);return;}
+      // Sample ~1 point per week to avoid overwhelming the chart
+      const step=Math.max(1,Math.floor(d.length/120));
+      const pts=[];
+      for(let i=0;i<d.length;i+=step){
+        const r=d[i];
+        pts.push({date:r.date,Shared:r.shared_balance,[settings.person1_name]:r.person1_balance,[settings.person2_name]:r.person2_balance});
+      }
+      // Always include last point
+      const last=d[d.length-1];
+      if(pts[pts.length-1]?.date!==last.date)pts.push({date:last.date,Shared:last.shared_balance,[settings.person1_name]:last.person1_balance,[settings.person2_name]:last.person2_balance});
+      setBalHistory(pts);
+    });
+  },[]);
   const personData=Object.entries(sum.monthly_person||{}).map(([k,v])=>({month:k.slice(5),[settings.person1_name]:+(v.p1||0).toFixed(2),[settings.person2_name]:+(v.p2||0).toFixed(2)})).slice(-12);
 
   const Tt=({active,payload,label})=>{if(!active||!payload?.length)return null;return(<div style={{background:'white',border:'1px solid var(--border)',borderRadius:8,padding:'10px 14px',fontSize:13}}><p style={{fontWeight:600,marginBottom:4}}>{label}</p>{payload.map((p,i)=><p key={i} style={{color:p.fill||p.color}}>{p.name}: ${(p.value||0).toFixed(2)}</p>)}</div>);};
@@ -398,45 +418,78 @@ function Dashboard({settings}){
       <div className="stat-card"><div className="stat-label">{settings.person2_name}</div><div className={`stat-value ${sum.person2_balance>=0?'positive':'negative'}`}>{fmt(sum.person2_balance)}</div><div className="stat-sub">Cumulative share</div></div>
       {sum.pending_count>0&&<div className="stat-card"><div className="stat-label">Pending</div><div className="stat-value warn">{sum.pending_count}</div><div className="stat-sub">Need split</div></div>}
     </div>
-    {/* Chart view toggle */}
-    <div style={{display:'flex',gap:6,marginBottom:12,alignItems:'center'}}>
-      <span style={{fontSize:12.5,color:'var(--text3)'}}>Charts view:</span>
-      {['combined','p1','p2'].map(v=>(
-        <button key={v} className={`btn btn-sm${chartView===v?' btn-primary':' btn-secondary'}`} onClick={()=>setChartView(v)}>
-          {v==='combined'?'Combined':v==='p1'?settings.person1_name:settings.person2_name}
-        </button>
-      ))}
-    </div>
-    <div style={{display:'grid',gridTemplateColumns:'1.2fr 1fr',gap:16,marginBottom:16}}>
+    {/* Charts */}
+    <div style={{marginBottom:16}}>
       <div className="card card-padded">
-        <div className="sec-title" style={{marginTop:0}}>Monthly Income vs Expenses{chartView!=='combined'?` — ${chartView==='p1'?settings.person1_name:settings.person2_name}`:''}</div>
-        <Recharts.ResponsiveContainer width="100%" height={200}>
-          <Recharts.BarChart data={monthlyData} barGap={4}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12,flexWrap:'wrap',gap:8}}>
+          <div className="sec-title" style={{marginTop:0,marginBottom:0}}>Monthly Cash Flow</div>
+          <span style={{fontSize:12,color:'var(--text3)'}}>Line = net; bars = income &amp; expenses. Bars show direction of money — line shows whether you're up or down overall.</span>
+        </div>
+        <Recharts.ResponsiveContainer width="100%" height={220}>
+          <Recharts.ComposedChart data={monthlyData}>
             <Recharts.CartesianGrid strokeDasharray="3 3" stroke="var(--border)"/>
             <Recharts.XAxis dataKey="month" tick={{fontSize:11,fill:'var(--text3)'}} axisLine={false} tickLine={false}/>
-            <Recharts.YAxis tick={{fontSize:10,fill:'var(--text3)'}} axisLine={false} tickLine={false} tickFormatter={v=>`$${v}`} width={55}/>
+            <Recharts.YAxis tick={{fontSize:10,fill:'var(--text3)'}} axisLine={false} tickLine={false} tickFormatter={v=>`$${Math.abs(v)}`} width={55}/>
             <Recharts.Tooltip content={<Tt/>}/>
             <Recharts.Legend wrapperStyle={{fontSize:12}}/>
-            <Recharts.Bar dataKey="Income" fill={COLORS[0]} radius={[3,3,0,0]}/>
-            <Recharts.Bar dataKey="Expenses" fill={COLORS[2]} radius={[3,3,0,0]}/>
-          </Recharts.BarChart>
+            <Recharts.Bar dataKey="Income" fill="#1a5276" radius={[3,3,0,0]} opacity={0.7}/>
+            <Recharts.Bar dataKey="Expenses" fill="#c0392b" radius={[3,3,0,0]} opacity={0.7}/>
+            <Recharts.Line type="monotone" dataKey="Net" stroke="#2d6a4f" strokeWidth={2.5} dot={{r:3}} activeDot={{r:5}}/>
+          </Recharts.ComposedChart>
         </Recharts.ResponsiveContainer>
       </div>
-      <div className="card card-padded" style={{overflow:'hidden'}}>
-        <div className="sec-title" style={{marginTop:0}}>Spending by Category{chartView!=='combined'?` — ${chartView==='p1'?settings.person1_name:settings.person2_name}`:''}</div>
-        {catData.length===0?<div className="empty-state" style={{padding:20}}>No spending data</div>:(
-          <Recharts.ResponsiveContainer width="100%" height={200}>
-            <Recharts.PieChart margin={{top:0,right:120,bottom:0,left:0}}>
-              <Recharts.Pie data={catData} dataKey="value" nameKey="name" cx="40%" cy="50%" outerRadius={72} paddingAngle={2}>
-                {catData.map((_,i)=><Recharts.Cell key={i} fill={COLORS[i%COLORS.length]}/>)}
-              </Recharts.Pie>
-              <Recharts.Tooltip content={<PieTt/>}/>
-              <Recharts.Legend iconType="circle" iconSize={7} wrapperStyle={{fontSize:11,right:0,width:110,overflowY:'auto',maxHeight:200}} layout="vertical" align="right" verticalAlign="middle"/>
-            </Recharts.PieChart>
-          </Recharts.ResponsiveContainer>
-        )}
-      </div>
     </div>
+
+    {/* Balance history */}
+    {balHistory.length>1&&<div className="card card-padded" style={{marginBottom:16}}>
+      <div className="sec-title" style={{marginTop:0}}>Account Balance Over Time</div>
+      <Recharts.ResponsiveContainer width="100%" height={200}>
+        <Recharts.LineChart data={balHistory}>
+          <Recharts.CartesianGrid strokeDasharray="3 3" stroke="var(--border)"/>
+          <Recharts.XAxis dataKey="date" tick={{fontSize:10,fill:'var(--text3)'}} axisLine={false} tickLine={false} interval="preserveStartEnd"/>
+          <Recharts.YAxis tick={{fontSize:10,fill:'var(--text3)'}} axisLine={false} tickLine={false} tickFormatter={v=>`$${v}`} width={65}/>
+          <Recharts.Tooltip content={<Tt/>}/>
+          <Recharts.Legend wrapperStyle={{fontSize:12}}/>
+          <Recharts.Line type="monotone" dataKey="Shared" stroke="#2d6a4f" strokeWidth={2} dot={false}/>
+          <Recharts.Line type="monotone" dataKey={settings.person1_name} stroke="#1a5276" strokeWidth={1.5} dot={false} strokeDasharray="4 2"/>
+          <Recharts.Line type="monotone" dataKey={settings.person2_name} stroke="#7b241c" strokeWidth={1.5} dot={false} strokeDasharray="4 2"/>
+        </Recharts.LineChart>
+      </Recharts.ResponsiveContainer>
+    </div>}
+
+    {/* Spending by category - table */}
+    <div className="card card-padded" style={{marginBottom:16}}>
+      <div className="sec-title" style={{marginTop:0}}>Spending by Category</div>
+      {catData.length===0?<div className="empty-state" style={{padding:16}}>No spending data</div>:(
+        <table style={{width:'100%',fontSize:13,borderCollapse:'collapse'}}>
+          <thead><tr>
+            <th style={{textAlign:'left',padding:'6px 10px',borderBottom:'1px solid var(--border)',color:'var(--text3)',fontSize:11.5,textTransform:'uppercase'}}>Category</th>
+            <th style={{textAlign:'right',padding:'6px 10px',borderBottom:'1px solid var(--border)',color:'var(--text3)',fontSize:11.5,textTransform:'uppercase'}}>Total</th>
+            <th style={{textAlign:'right',padding:'6px 10px',borderBottom:'1px solid var(--border)',color:'var(--text3)',fontSize:11.5,textTransform:'uppercase'}}>{settings.person1_name}</th>
+            <th style={{textAlign:'right',padding:'6px 10px',borderBottom:'1px solid var(--border)',color:'var(--text3)',fontSize:11.5,textTransform:'uppercase'}}>{settings.person2_name}</th>
+            <th style={{padding:'6px 10px',borderBottom:'1px solid var(--border)',minWidth:120}}></th>
+          </tr></thead>
+          <tbody>{catData.map((d,i)=>{const tot=Object.values(sum.category_totals||{}).reduce((a,b)=>a+b,0)||1;const pct=d.value/tot;const p1v=(sum.category_totals_p1||{})[d.name]||0;const p2v=(sum.category_totals_p2||{})[d.name]||0;return(
+            <tr key={d.name} style={{background:i%2===0?'white':'var(--surface2)'}}>
+              <td style={{padding:'7px 10px',borderBottom:'1px solid var(--border)'}}><span style={{display:'inline-block',width:9,height:9,borderRadius:'50%',background:COLORS[i%COLORS.length],marginRight:7,verticalAlign:'middle'}}></span>{d.name}</td>
+              <td style={{padding:'7px 10px',borderBottom:'1px solid var(--border)',textAlign:'right',fontFamily:'DM Mono',fontSize:12.5}}>${d.value.toFixed(2)}</td>
+              <td style={{padding:'7px 10px',borderBottom:'1px solid var(--border)',textAlign:'right',fontFamily:'DM Mono',fontSize:12.5,color:'var(--text2)'}}>{p1v>0?`$${p1v.toFixed(2)}`:'—'}</td>
+              <td style={{padding:'7px 10px',borderBottom:'1px solid var(--border)',textAlign:'right',fontFamily:'DM Mono',fontSize:12.5,color:'var(--text2)'}}>{p2v>0?`$${p2v.toFixed(2)}`:'—'}</td>
+              <td style={{padding:'7px 10px 7px 14px',borderBottom:'1px solid var(--border)'}}><div style={{height:7,borderRadius:4,background:'var(--border)',overflow:'hidden'}}><div style={{height:'100%',width:`${Math.min(pct*100,100)}%`,background:COLORS[i%COLORS.length],borderRadius:4}}/></div></td>
+            </tr>
+          );})}
+          <tr style={{fontWeight:600}}>
+            <td style={{padding:'8px 10px'}}>Total</td>
+            <td style={{padding:'8px 10px',textAlign:'right',fontFamily:'DM Mono',fontSize:12.5}}>${Object.values(sum.category_totals||{}).reduce((a,b)=>a+b,0).toFixed(2)}</td>
+            <td style={{padding:'8px 10px',textAlign:'right',fontFamily:'DM Mono',fontSize:12.5,color:'var(--text2)'}}>${Object.values(sum.category_totals_p1||{}).reduce((a,b)=>a+b,0).toFixed(2)}</td>
+            <td style={{padding:'8px 10px',textAlign:'right',fontFamily:'DM Mono',fontSize:12.5,color:'var(--text2)'}}>${Object.values(sum.category_totals_p2||{}).reduce((a,b)=>a+b,0).toFixed(2)}</td>
+            <td></td>
+          </tr>
+          </tbody>
+        </table>
+      )}
+    </div>
+
     {personData.length>0&&<div className="card card-padded" style={{marginBottom:16}}>
       <div className="sec-title" style={{marginTop:0}}>Monthly Income per Person</div>
       <Recharts.ResponsiveContainer width="100%" height={180}>
@@ -452,14 +505,14 @@ function Dashboard({settings}){
       </Recharts.ResponsiveContainer>
     </div>}
     <div className="balance-grid">
-      <div className="balance-card p1"><div className="balance-name">{settings.person1_name}</div><div className="balance-amount">{fmt(sum.person1_balance)}</div><div className="stat-sub" style={{marginTop:4}}>Total share (filtered)</div></div>
-      <div className="balance-card p2"><div className="balance-name">{settings.person2_name}</div><div className="balance-amount">{fmt(sum.person2_balance)}</div><div className="stat-sub" style={{marginTop:4}}>Total share (filtered)</div></div>
+      <div className="balance-card p1"><div className="balance-name">{settings.person1_name}</div><div className="balance-amount">{fmt(sum.person1_balance)}</div><div className="stat-sub" style={{marginTop:4}}>Cumulative share (filtered)</div></div>
+      <div className="balance-card p2"><div className="balance-name">{settings.person2_name}</div><div className="balance-amount">{fmt(sum.person2_balance)}</div><div className="stat-sub" style={{marginTop:4}}>Cumulative share (filtered)</div></div>
     </div>
   </div>);
 }
 
 // ── Transactions ──────────────────────────────────────────────────────────────
-const DW={chk:36,date:110,vd:100,merchant:190,cat:110,notes:150,amt:100,p1:95,p2:95,split:65,act:72};
+const DW={chk:36,date:110,vd:100,merchant:190,cat:110,notes:150,amt:100,p1:95,p2:95,split:65,sbal:110,act:72};
 function Transactions({settings,categories}){
   const [data,setData]=useState({transactions:[],total:0,all_ids:[]});
   const [search,setSearch]=useState('');
@@ -472,6 +525,7 @@ function Transactions({settings,categories}){
   const [sc,setSc]=useState('date');const [sd,setSd]=useState('desc');
   const [cw,setCw]=useState(DW);
   const [cf,setCf]=useState({});
+  const [runBal,setRunBal]=useState({});
 
   const buildUrl=useCallback((ov={})=>{
     const o={page,pageSize,search,sc,sd,cf,...ov};
@@ -489,6 +543,7 @@ function Transactions({settings,categories}){
 
   const load=useCallback(()=>{
     authFetch(buildUrl()).then(r=>r.json()).then(d=>{setData(d);setSel(new Set());setSelAll(false);});
+    authFetch(`${API}/api/transactions/running-balance`).then(r=>r.json()).then(d=>{const m={};if(Array.isArray(d))d.forEach(r=>{m[r.id]=r;});setRunBal(m);});
   },[buildUrl]);
 
   useEffect(()=>{load();},[load]);
@@ -514,14 +569,17 @@ function Transactions({settings,categories}){
     setToast(`Updated ${ids.length}`);setModal(null);setSel(new Set());setSelAll(false);load();
   };
   const selectAllPages=async()=>{
-    const u=buildUrl()+'&select_all=true';
+    const u=buildUrl({page:0,pageSize:99999})+'&select_all=true';
     const d=await authFetch(u).then(r=>r.json());
-    setSel(new Set(d.all_ids));setSelAll(true);
+    const ids=d.all_ids||[];
+    setSel(new Set(ids));
+    setSelAll(true);
   };
   const togSel=id=>setSel(s=>{const n=new Set(s);n.has(id)?n.delete(id):n.add(id);return n;});
   const togPage=()=>setSel(s=>s.size===txs.length?new Set():new Set(txs.map(t=>t.id)));
   const resize=(col,w)=>setCw(c=>({...c,[col]:w}));
-  const selCount=selAll?data.all_ids.length:sel.size;
+  // all_ids only populated when select_all=true fetch is done; fallback to sel.size
+  const selCount=selAll?(data.all_ids.length||sel.size):sel.size;
   const hasF=Object.values(cf).some(f=>f&&(f.text||f.dateFrom||f.dateTo||(f.values&&f.values.length)));
 
   const cols=[
@@ -534,6 +592,7 @@ function Transactions({settings,categories}){
     {key:'p1',label:settings.person1_name,sort:false,ct:null,w:'p1'},
     {key:'p2',label:settings.person2_name,sort:false,ct:null,w:'p2'},
     {key:'split',label:'Split',sort:false,ct:null,w:'split'},
+    {key:'sbal',label:'Balance',sort:false,ct:null,w:'sbal'},
   ];
 
   return(<div>
@@ -549,7 +608,7 @@ function Transactions({settings,categories}){
       <div style={{marginLeft:'auto',display:'flex',alignItems:'center',gap:8}}>
         <span style={{fontSize:13,color:'var(--text3)'}}>Per page:</span>
         <select className="fsel" value={pageSize} onChange={e=>{setPageSize(Number(e.target.value));setPage(0);}}>
-          {[25,50,100,200].map(n=><option key={n} value={n}>{n}</option>)}
+          {[25,50,100,200,500,1000].map(n=><option key={n} value={n}>{n}</option>)}
         </select>
       </div>
     </div>
@@ -568,6 +627,7 @@ function Transactions({settings,categories}){
           <thead><tr>
             <th style={{width:cw.chk}}><div className="th-inner"><input type="checkbox" checked={txs.length>0&&sel.size===txs.length} onChange={togPage}/></div></th>
             {cols.map(c=><RsTh key={c.key} colKey={c.key} label={c.label} width={cw[c.w]||100} onResize={w=>resize(c.w,w)} sortCol={sc} sortDir={sd} onSort={c.sort?sort:null} colType={c.ct} colFilter={cf[c.key]} onFilter={filter}/>)}
+            <th style={{width:cw.sbal}}><div className="th-inner">Balance</div></th>
             <th style={{width:cw.act}}><div className="th-inner">Actions</div></th>
           </tr></thead>
           <tbody>
@@ -582,8 +642,9 @@ function Transactions({settings,categories}){
                 <td style={{width:cw.notes,color:'var(--text3)',fontSize:12.5}}>{tx.notes||'—'}</td>
                 <td style={{width:cw.amt,textAlign:'right'}} className={`mono ${tx.amount<0?'amt-neg':'amt-pos'}`}>{fmt(tx.amount)}</td>
                 <td style={{width:cw.p1,textAlign:'right'}} className="mono">{tx.is_pending?<span className="badge badge-pending">Pending</span>:tx.is_transfer||tx.is_starting_balance?'—':fmtAbs(tx.person1_amount)}</td>
-                <td style={{width:cw.p2,textAlign:'right'}} className="mono">{tx.is_pending||tx.is_transfer||tx.is_starting_balance?'—':fmtAbs(tx.person2_amount)}</td>
+                <td style={{width:cw.p2,textAlign:'right'}} className="mono">{tx.is_pending?<span className="badge badge-pending">Pending</span>:tx.is_transfer||tx.is_starting_balance?'—':fmtAbs(tx.person2_amount)}</td>
                 <td style={{width:cw.split,textAlign:'right',fontFamily:'DM Mono',fontSize:12,color:'var(--text3)'}}>{tx.is_transfer||tx.is_starting_balance||tx.is_pending?'—':`${Math.round(tx.person1_pct*100)}/${Math.round(tx.person2_pct*100)}`}</td>
+                <td style={{width:cw.sbal,textAlign:'right'}} className={`mono ${runBal[tx.id]?.shared_balance>=0?'amt-pos':'amt-neg'}`}>{runBal[tx.id]?fmtAbs(runBal[tx.id].shared_balance):'—'}</td>
                 <td style={{width:cw.act}}><div style={{display:'flex',gap:3,justifyContent:'flex-end'}}>
                   <button className="btn btn-ghost btn-sm" onClick={()=>setModal({type:'edit',tx})}><I n="edit" s={13}/></button>
                   <button className="btn btn-ghost btn-sm" style={{color:'var(--danger)'}} onClick={()=>setModal({type:'del',tx})}><I n="trash" s={13}/></button>
@@ -616,6 +677,10 @@ function Transactions({settings,categories}){
 function ImportPage(){
   const [file,setFile]=useState(null);
   const [type,setType]=useState(null); // 'commbank'|'xlsx'
+  const [sessions,setSessions]=useState([]);
+  const [sessionLoaded,setSessionLoaded]=useState(false);
+  const loadSessions=()=>authFetch(`${API}/api/import/sessions`).then(r=>r.json()).then(setSessions);
+  useEffect(()=>{loadSessions();},[]);
   const [parsing,setParsing]=useState(false);
   const [review,setReview]=useState(null); // {rows,skipped}
   const [result,setResult]=useState(null);
@@ -631,11 +696,13 @@ function ImportPage(){
     setParsing(false);
   };
 
+  const undoSession=async(id)=>{if(!window.confirm('Undo this import? This will delete all transactions from that batch.'))return;await authFetch(`${API}/api/import/sessions/${id}`,{method:'DELETE'});setToast('Import undone');loadSessions();};
   const confirm=async(rows)=>{
     const r=await authFetch(`${API}/api/import/confirm`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({rows})});
     const d=await r.json();
     setReview(null);setResult(d);setFile(null);setType(null);
     setToast(`Imported ${d.imported} transactions`);
+    loadSessions();
   };
 
   const pick=(f,t)=>{setFile(f);setType(t);setReview(null);setResult(null);setErr('');};
@@ -663,6 +730,7 @@ function ImportPage(){
       </div>
     </div>}
     {result&&<div style={{marginTop:16,padding:16,background:'var(--accent-light)',borderRadius:'var(--radius)',border:'1px solid #bdddd4'}}><p style={{fontWeight:600,color:'var(--accent)',marginBottom:4}}>✓ Import complete</p><p style={{fontSize:13,color:'var(--text2)'}}>{result.imported} imported, {result.skipped} skipped.</p><button className="btn btn-secondary btn-sm" style={{marginTop:8}} onClick={()=>setResult(null)}>Import another</button></div>}
+    {sessions.length>0&&!review&&<div className="card card-padded" style={{marginTop:20}}><div className="sec-title" style={{marginTop:0}}>Import History</div><p style={{fontSize:13,color:'var(--text2)',marginBottom:12}}>Undo removes all transactions from that import batch.</p><table style={{width:'100%',fontSize:13,borderCollapse:'collapse'}}><thead><tr><th style={{textAlign:'left',padding:'6px 10px',borderBottom:'1px solid var(--border)',color:'var(--text3)',fontSize:11.5,textTransform:'uppercase'}}>Date</th><th style={{textAlign:'left',padding:'6px 10px',borderBottom:'1px solid var(--border)',color:'var(--text3)',fontSize:11.5,textTransform:'uppercase'}}>Source</th><th style={{textAlign:'right',padding:'6px 10px',borderBottom:'1px solid var(--border)',color:'var(--text3)',fontSize:11.5,textTransform:'uppercase'}}>Count</th><th style={{padding:'6px 10px',borderBottom:'1px solid var(--border)'}}></th></tr></thead><tbody>{sessions.map(s=><tr key={s.id}><td style={{padding:'7px 10px',borderBottom:'1px solid var(--border)',fontFamily:'DM Mono',fontSize:12}}>{s.imported_at?.slice(0,16).replace('T',' ')}</td><td style={{padding:'7px 10px',borderBottom:'1px solid var(--border)',color:'var(--text2)'}}>{s.source||'—'}</td><td style={{padding:'7px 10px',borderBottom:'1px solid var(--border)',textAlign:'right'}}>{s.count}</td><td style={{padding:'7px 10px',borderBottom:'1px solid var(--border)',textAlign:'right'}}><button className="btn btn-danger btn-sm" onClick={()=>undoSession(s.id)}>Undo</button></td></tr>)}</tbody></table></div>}
     {err&&<p style={{color:'var(--danger)',fontSize:13,marginTop:12}}>{err}</p>}
     {review&&<ImportReviewModal rows={review.rows} skipped={review.skipped} onClose={()=>{setReview(null);}} onConfirm={confirm}/>}
     {toast&&<Toast msg={toast} onDone={()=>setToast('')}/>}
