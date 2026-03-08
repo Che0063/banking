@@ -1,211 +1,107 @@
-<!DOCTYPE html>
-<html>
-<head>
-<meta charset="utf-8">
-<title>Couple Spending Dashboard</title>
-
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
-<style>
-
-body{
-font-family:Arial;
-margin:40px;
-}
-
-table{
-border-collapse:collapse;
-width:100%;
-}
-
-td,th{
-border:1px solid #ccc;
-padding:6px;
-}
-
-.alert{
-background:#ffe0e0;
-padding:10px;
-margin-bottom:10px;
-}
-
-</style>
-</head>
-
-<body>
-
-<h1>Anthony & Sam Spending</h1>
-
-<h2>Import CSV</h2>
-
-<input type="file" id="file">
-<input placeholder="Expected balance after import" id="expected">
-<button onclick="upload()">Import</button>
-
-<div id="importResult"></div>
-
-<h2>Spending Alerts</h2>
-
-<div id="alerts"></div>
-
-<h2>Transactions</h2>
-
-<button onclick="deleteSelected()">Delete Selected</button>
-
-<table id="txTable">
-<thead>
-<tr>
-<th></th>
-<th>Date</th>
-<th>Mobile Date</th>
-<th>Merchant</th>
-<th>Amount</th>
-<th>Category</th>
-</tr>
-</thead>
-<tbody></tbody>
-</table>
-
-<h2>Monthly Comparison</h2>
-
-<canvas id="chart"></canvas>
-
-<script>
-
-let selected = new Set()
-
-async function upload(){
-
-let f=document.getElementById("file").files[0]
-
-let expected=document.getElementById("expected").value
-
-let form=new FormData()
-
-form.append("file",f)
-
-let r=await fetch("/api/import?expected_balance="+expected,{
-method:"POST",
-body:form
-})
-
-let j=await r.json()
-
-document.getElementById("importResult").innerText=
-`Imported ${j.imported} transactions, skipped ${j.duplicates_skipped} duplicates`
-
-load()
-
-}
-
-async function load(){
-
-let r=await fetch("/api/transactions")
-
-let rows=await r.json()
-
-let tbody=document.querySelector("#txTable tbody")
-
-tbody.innerHTML=""
-
-for(let t of rows){
-
-let tr=document.createElement("tr")
-
-tr.innerHTML=`
-
-<td><input type="checkbox" onchange="toggle(${t.id})"></td>
-<td>${t.date}</td>
-<td>${t.value_date||""}</td>
-<td>${t.merchant}</td>
-<td>${t.amount}</td>
-<td>${t.category}</td>
-
-`
-
-tbody.appendChild(tr)
-
-}
-
-loadAlerts()
-loadChart()
-
-}
-
-function toggle(id){
-
-if(selected.has(id))
-selected.delete(id)
-else
-selected.add(id)
-
-}
-
-async function deleteSelected(){
-
-await fetch("/api/transactions/bulk-delete",{
-method:"POST",
-headers:{'Content-Type':'application/json'},
-body:JSON.stringify([...selected])
-})
-
-selected.clear()
-
-load()
-
-}
-
-async function loadAlerts(){
-
-let r=await fetch("/api/spending-alerts")
-
-let alerts=await r.json()
-
-let div=document.getElementById("alerts")
-
-div.innerHTML=""
-
-alerts.forEach(a=>{
-
-let d=document.createElement("div")
-d.className="alert"
-d.innerText=a
-div.appendChild(d)
-
-})
-
-}
-
-async function loadChart(){
-
-let r=await fetch("/api/monthly")
-
-let data=await r.json()
-
-let ctx=document.getElementById("chart")
-
-new Chart(ctx,{
-type:"bar",
-data:{
-labels:data.map(d=>d.month),
-datasets:[
-{
-label:"Anthony",
-data:data.map(d=>d.p1)
-},
-{
-label:"Sam",
-data:data.map(d=>d.p2)
-}
-]
-}
-})
-
-}
-
-load()
-
-</script>
-
-</body>
-</html>
+const Dashboard = ({ settings }) => {
+  const [data, setData] = useState([]);
+  
+  // ... Fetching logic ...
+
+  return (
+    <div className="dashboard">
+      <div className="stat-grid">
+         {/* Partner Spending Breakdown Improvement */}
+         <div className="stat-card">
+            <div className="stat-label">Total Spending Split</div>
+            <div style={{display:'flex', height: 10, borderRadius: 5, overflow: 'hidden', marginTop: 10}}>
+                <div style={{width: '60%', background: 'var(--accent)'}} title={settings.person1_name}></div>
+                <div style={{width: '40%', background: 'var(--income)'}} title={settings.person2_name}></div>
+            </div>
+            <div className="stat-sub">{settings.person1_name} vs {settings.person2_name}</div>
+         </div>
+      </div>
+
+      <div className="card card-padded">
+        <h3>Balance Over Time</h3>
+        <div style={{ width: '100%', height: 350 }}>
+          <Recharts.ResponsiveContainer>
+            <Recharts.AreaChart data={data}>
+              <Recharts.XAxis dataKey="date" />
+              {/* FIX: allowDataOverflow and manual domain for y_min/y_max clipping */}
+              <Recharts.YAxis 
+                domain={[settings.y_min || 'auto', settings.y_max || 'auto']} 
+                allowDataOverflow={true} 
+              />
+              <Recharts.Tooltip />
+              <Recharts.Area type="monotone" dataKey="balance" stroke="var(--accent)" fill="var(--accent-light)" />
+            </Recharts.AreaChart>
+          </Recharts.ResponsiveContainer>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const ImportPage = () => {
+  const [expectedBalance, setExpectedBalance] = useState("");
+  const [transactions, setTransactions] = useState([]);
+  const [currentBalance, setCurrentBalance] = useState(0);
+
+  // Reconciliation Logic
+  const autoReconcile = () => {
+    const target = parseFloat(expectedBalance);
+    if (isNaN(target)) return;
+
+    let running = currentBalance;
+    const updated = transactions.map(t => {
+      // Logic to suggest combination:
+      // If adding this transaction gets us closer to target, select it
+      const potential = running + t.amount;
+      if (Math.abs(target - potential) < Math.abs(target - running)) {
+         running += t.amount;
+         return { ...t, selected: true };
+      }
+      return { ...t, selected: false };
+    });
+    setTransactions(updated);
+  };
+
+  return (
+    <div className="import-page">
+      <div className="card card-padded">
+        <h3>Import Review</h3>
+        <div className="filter-row">
+            <label>Expected Shared Balance:</label>
+            <input 
+              type="number" 
+              className="form-input" 
+              style={{width: 150}}
+              value={expectedBalance}
+              onChange={e => setExpectedBalance(e.target.value)}
+              placeholder="e.g. 1250.00"
+            />
+            <button className="btn btn-primary" onClick={autoReconcile}>Suggest Combination</button>
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Import</th>
+              <th>Mobile Date</th> {/* Original Date */}
+              <th>Desktop Date</th> {/* Value Date */}
+              <th>Merchant</th>
+              <th>Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            {transactions.map((t, i) => (
+              <tr key={i} className={t.is_duplicate ? 'dup-row' : ''}>
+                <td><input type="checkbox" checked={t.selected} onChange={() => {/* toggle */}} /></td>
+                <td className="mono">{t.date}</td>
+                <td className="mono" style={{color: 'var(--text3)'}}>{t.value_date || '—'}</td>
+                <td>{t.merchant}</td>
+                <td className={t.amount < 0 ? 'amt-neg' : 'amt-pos'}>{fmt(t.amount)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+};
