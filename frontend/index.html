@@ -159,6 +159,7 @@ const authFetch=(url,opts={})=>{
   const h={...(opts.headers||{}),'Authorization':`Bearer ${getToken()}`};
   return fetch(url,{...opts,headers:h});
 };
+const fmtDate=d=>{if(!d||d==='—')return'—';const p=d.split('-');return p.length===3?`${p[2]}/${p[1]}/${p[0]}`:d;};
 const fmt=n=>n==null?'—':`${n<0?'-':n>0?'+':''}$${Math.abs(n).toFixed(2)}`;
 const fmtAbs=n=>n==null?'—':`$${Math.abs(n).toFixed(2)}`;
 const today=()=>new Date().toISOString().slice(0,10);
@@ -366,8 +367,8 @@ function ImportReviewModal({rows,skipped,onClose,onConfirm}){
       const pendingCount=sorted.filter(x=>getGroupDate(x)===gd).length;
       renderedRows.push(
         <tr key={`div-${gd}`}>
-          <td colSpan={8} style={{padding:'4px 10px',background:'var(--surface2)',borderTop:'2px solid var(--border)',borderBottom:'1px solid var(--border)',fontSize:11,color:'var(--text2)',fontWeight:600,letterSpacing:'.3px'}}>
-            <span style={{fontFamily:'DM Mono'}}>{gd||'No date'}</span>
+          <td colSpan={7} style={{padding:'4px 10px',background:'var(--surface2)',borderTop:'2px solid var(--border)',borderBottom:'1px solid var(--border)',fontSize:11,color:'var(--text2)',fontWeight:600,letterSpacing:'.3px'}}>
+            <span style={{fontFamily:'DM Mono'}}>{gd?fmtDate(gd):'No date'}</span>
             <span style={{marginLeft:12,fontWeight:400,color:'var(--text3)'}}>
               {pendingCount} incoming · {dbCount} already in DB
             </span>
@@ -380,7 +381,7 @@ function ImportReviewModal({rows,skipped,onClose,onConfirm}){
     const isExpanded=expandedDups.has(i);
     renderedRows.push(
       <tr key={i} style={{background:isDup?(action==='skip'?'#fff5e6':'#fff9ed'):(action==='skip'?'#f8f8f8':'white'),borderLeft:isDup?'3px solid var(--warn)':'none'}}>
-        <td style={{padding:'7px 8px',borderBottom:'1px solid var(--border)',fontFamily:'DM Mono',fontSize:10.5}}>{r.date}</td>
+        <td style={{padding:'7px 8px',borderBottom:'1px solid var(--border)',fontFamily:'DM Mono',fontSize:10.5}}>{fmtDate(r.date)}</td>
         <td style={{padding:'7px 8px',borderBottom:'1px solid var(--border)'}}>
           <input type="date" value={vdEdits[i]} onChange={e=>setVd(i,e.target.value)}
             style={{fontFamily:'DM Mono',fontSize:10.5,border:'1px solid var(--border)',borderRadius:3,padding:'2px 4px',background:vdEdits[i]?'white':'#fff8f0',width:108,color:vdEdits[i]?'var(--text)':'var(--warn)'}}/>
@@ -408,18 +409,18 @@ function ImportReviewModal({rows,skipped,onClose,onConfirm}){
     if(isDup&&isExpanded&&dupOf){
       renderedRows.push(
         <tr key={`dup-detail-${i}`}>
-          <td colSpan={8} style={{padding:'0 8px 8px 28px',borderBottom:'1px solid var(--border)',background:'#fffbf0'}}>
+          <td colSpan={7} style={{padding:'0 8px 8px 28px',borderBottom:'1px solid var(--border)',background:'#fffbf0'}}>
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,padding:'8px 10px',background:'white',border:'1px solid #fce4b2',borderRadius:6,fontSize:12}}>
               <div>
                 <div style={{fontSize:10.5,fontWeight:600,color:'var(--warn)',marginBottom:4,textTransform:'uppercase',letterSpacing:'.3px'}}>Incoming (CSV)</div>
-                <div style={{fontFamily:'DM Mono',fontSize:11,marginBottom:2}}>Statement: {r.date} · Mobile: {vdEdits[i]||<span style={{color:'var(--warn)'}}>Pending</span>}</div>
+                <div style={{fontFamily:'DM Mono',fontSize:11,marginBottom:2}}>Statement: {fmtDate(r.date)} · Mobile: {vdEdits[i]||<span style={{color:'var(--warn)'}}>Pending</span>}</div>
                 <div style={{fontSize:12.5,fontWeight:500,marginBottom:1}}>{r.merchant}</div>
                 <div style={{fontFamily:'DM Mono',color:r.amount<0?'var(--danger)':'var(--income)',fontSize:13,fontWeight:600}}>{fmt(r.amount)}</div>
                 <div style={{fontSize:11,color:'var(--text3)',marginTop:2}}>{r.category}</div>
               </div>
               <div style={{borderLeft:'2px solid #fce4b2',paddingLeft:10}}>
                 <div style={{fontSize:10.5,fontWeight:600,color:'var(--text2)',marginBottom:4,textTransform:'uppercase',letterSpacing:'.3px'}}>Existing in DB</div>
-                <div style={{fontFamily:'DM Mono',fontSize:11,marginBottom:2}}>Statement: {dupOf.date} · Mobile: {dupOf.value_date||<span style={{color:'var(--warn)'}}>Pending</span>}</div>
+                <div style={{fontFamily:'DM Mono',fontSize:11,marginBottom:2}}>Statement: {fmtDate(dupOf.date)} · Mobile: {fmtDate(dupOf.value_date)||<span style={{color:'var(--warn)'}}>Pending</span>}</div>
                 <div style={{fontSize:12.5,fontWeight:500,marginBottom:1}}>{dupOf.merchant}</div>
                 <div style={{fontFamily:'DM Mono',color:dupOf.amount<0?'var(--danger)':'var(--income)',fontSize:13,fontWeight:600}}>{fmt(dupOf.amount)}</div>
                 <div style={{fontSize:11,color:'var(--text3)',marginTop:2}}>{dupOf.category} {dupOf.person1_pct!=null?`· ${Math.round(dupOf.person1_pct*100)}/${Math.round(dupOf.person2_pct*100)}`:'· Pending split'}</div>
@@ -470,7 +471,7 @@ function ImportReviewModal({rows,skipped,onClose,onConfirm}){
         </div>
       </div>}
       <div style={{overflowY:'auto',maxHeight:'58vh'}}>
-        <table style={{width:'100%',fontSize:12.5,tableLayout:'fixed',borderCollapse:'collapse'}}>
+        <table style={{width:'100%',fontSize:12.5,tableLayout:'auto',borderCollapse:'collapse',minWidth:700}}>
           <thead style={{position:'sticky',top:0,zIndex:2,background:'var(--surface)'}}>
             <tr>
               <th style={{padding:'7px 8px',borderBottom:'2px solid var(--border)',color:'var(--text3)',fontSize:10.5,textTransform:'uppercase',width:95,textAlign:'left'}}>Statement</th>
@@ -503,7 +504,8 @@ const COLORS=['#1a5276','#2d6a4f','#c0392b','#d4820a','#6c3483','#117a65','#7842
 
 function Dashboard({settings}){
   const [sum,setSum]=useState(null);
-  const [fy,setFy]=useState('');const [fm,setFm]=useState('');const [fc,setFc]=useState('');
+  const curYear=String(new Date().getFullYear());
+  const [fy,setFy]=useState(curYear);const [fm,setFm]=useState('');const [fc,setFc]=useState('');
   const [cats,setCats]=useState([]);
   const [chartView,setChartView]=useState('combined');
   const [balHistory,setBalHistory]=useState([]);
@@ -518,19 +520,21 @@ function Dashboard({settings}){
     authFetch(url).then(r=>r.json()).then(setSum);
   },[fy,fm,fc]);
   useEffect(()=>{
-    authFetch(`${API}/api/transactions/running-balance`).then(r=>r.json()).then(d=>{
+    const bp2=new URLSearchParams();if(fy)bp2.set('year',fy);if(fm)bp2.set('month',fm);
+    const balUrl=`${API}/api/transactions/running-balance`+(bp2.toString()?'?'+bp2.toString():'');
+    authFetch(balUrl).then(r=>r.json()).then(d=>{
       if(!Array.isArray(d)||d.length===0){setBalHistory([]);return;}
       const step=Math.max(1,Math.floor(d.length/120));
       const pts=[];
       for(let i=0;i<d.length;i+=step){
         const r=d[i];
-        pts.push({date:r.date,Shared:r.shared_balance,[settings.person1_name]:r.person1_balance,[settings.person2_name]:r.person2_balance});
+        pts.push({date:fmtDate(r.date),Shared:r.shared_balance,[settings.person1_name]:r.person1_balance,[settings.person2_name]:r.person2_balance});
       }
       const last=d[d.length-1];
-      if(pts[pts.length-1]?.date!==last.date)pts.push({date:last.date,Shared:last.shared_balance,[settings.person1_name]:last.person1_balance,[settings.person2_name]:last.person2_balance});
+      if(pts[pts.length-1]?.date!==last.date)pts.push({date:fmtDate(last.date),Shared:last.shared_balance,[settings.person1_name]:last.person1_balance,[settings.person2_name]:last.person2_balance});
       setBalHistory(pts);
     });
-  },[]);
+  },[fy,fm]);
 
   if(!sum)return <div style={{padding:40,color:'var(--text3)'}}>Loading…</div>;
 
@@ -878,12 +882,12 @@ function Transactions({settings,categories}){
           <tbody>
             {txs.length===0&&<tr><td colSpan={11}><div className="empty-state"><I n="list" s={32}/><p>No transactions found</p></div></td></tr>}
             {txs.map(tx=>(
-              <tr key={tx.id} className={sel.has(tx.id)?'sel':''}>
+              <tr key={tx.id} className={sel.has(tx.id)?'sel':''} style={{cursor:'pointer'}} onClick={e=>{if(e.target.tagName==='INPUT'||e.target.closest('button'))return;setModal({type:'edit',tx});}}>
                 <td style={{width:cw.chk}}><input type="checkbox" checked={sel.has(tx.id)} onChange={()=>togSel(tx.id)}/></td>
-                <td style={{width:cw.date}} className="mono">{tx.date}</td>
-                <td style={{width:cw.vd}} className="mono">{tx.value_date?tx.value_date:<span className="badge badge-pending">Pending</span>}</td>
+                <td style={{width:cw.date}} className="mono">{fmtDate(tx.date)}</td>
+                <td style={{width:cw.vd}} className="mono">{tx.value_date?fmtDate(tx.value_date):<span className="badge badge-pending">Pending</span>}</td>
                 <td style={{width:cw.merchant,fontWeight:500}}>{tx.merchant}</td>
-                <td style={{width:cw.cat}}><span className={`badge ${tx.is_transfer?'badge-transfer':tx.is_starting_balance?'badge-start':'badge-cat'}`}>{tx.category}</span></td>
+                <td style={{width:cw.cat}}><span className={`badge ${tx.is_transfer?'badge-transfer':tx.is_starting_balance?'badge-start':tx.category==='Unassigned'?'badge-pending':'badge-cat'}`} style={tx.category==='Unassigned'?{background:'#fee2e2',color:'#991b1b',border:'1px solid #fca5a5'}:{}}>{tx.category==='Unassigned'?'⚠ Unassigned':tx.category}</span></td>
                 <td style={{width:cw.notes,color:'var(--text3)',fontSize:12.5}}>{tx.notes||'—'}</td>
                 <td style={{width:cw.amt,textAlign:'right'}} className={`mono ${tx.amount<0?'amt-neg':'amt-pos'}`}>{fmt(tx.amount)}</td>
                 <td style={{width:cw.p1,textAlign:'right'}} className="mono">{tx.is_pending?<span className="badge badge-pending">Pending</span>:tx.is_transfer||tx.is_starting_balance?'—':fmtAbs(tx.person1_amount)}</td>
@@ -911,7 +915,7 @@ function Transactions({settings,categories}){
       </div>
     </div>
     {(modal?.type==='add'||modal?.type==='edit')&&<TxModal tx={modal.tx} onClose={()=>setModal(null)} onSave={save} settings={settings} categories={categories}/>}
-    {modal?.type==='del'&&<div className="overlay" onClick={e=>e.target===e.currentTarget&&setModal(null)}><div className="modal" style={{maxWidth:420}}><div className="mhdr"><h3>Delete Transaction</h3><button className="btn btn-ghost btn-sm" onClick={()=>setModal(null)}><I n="x"/></button></div><div className="mbody"><p style={{fontSize:14,color:'var(--text2)',marginBottom:8}}>Delete <strong>{modal.tx.merchant}</strong> ({fmtAbs(modal.tx.amount)} on {modal.tx.date})?</p><p style={{fontSize:13,color:'var(--danger)',fontWeight:500}}>This action cannot be undone.</p></div><div className="mfoot"><button className="btn btn-secondary" onClick={()=>setModal(null)}>Cancel</button><button className="btn btn-danger" onClick={del}>Delete permanently</button></div></div></div>}
+    {modal?.type==='del'&&<div className="overlay" onClick={e=>e.target===e.currentTarget&&setModal(null)}><div className="modal" style={{maxWidth:420}}><div className="mhdr"><h3>Delete Transaction</h3><button className="btn btn-ghost btn-sm" onClick={()=>setModal(null)}><I n="x"/></button></div><div className="mbody"><p style={{fontSize:14,color:'var(--text2)',marginBottom:8}}>Delete <strong>{modal.tx.merchant}</strong> ({fmtAbs(modal.tx.amount)} on {fmtDate(modal.tx.date)})?</p><p style={{fontSize:13,color:'var(--danger)',fontWeight:500}}>This action cannot be undone.</p></div><div className="mfoot"><button className="btn btn-secondary" onClick={()=>setModal(null)}>Cancel</button><button className="btn btn-danger" onClick={del}>Delete permanently</button></div></div></div>}
     {modal?.type==='bulkdel'&&<div className="overlay" onClick={e=>e.target===e.currentTarget&&setModal(null)}><div className="modal" style={{maxWidth:420}}><div className="mhdr"><h3>Delete {selCount} Transactions</h3><button className="btn btn-ghost btn-sm" onClick={()=>setModal(null)}><I n="x"/></button></div><div className="mbody"><p style={{fontSize:14,color:'var(--text2)',marginBottom:8}}>Delete <strong>{selCount} selected transactions</strong>?</p><p style={{fontSize:13,color:'var(--danger)',fontWeight:500}}>This action cannot be undone.</p></div><div className="mfoot"><button className="btn btn-secondary" onClick={()=>setModal(null)}>Cancel</button><button className="btn btn-danger" onClick={bulkDel}>Delete {selCount} permanently</button></div></div></div>}
     {modal?.type==='bulkedit'&&<BulkEditModal count={selCount} categories={categories} settings={settings} onClose={()=>setModal(null)} onSave={bulkEdit}/>}
     {toast&&<Toast msg={toast} onDone={()=>setToast('')}/>}

@@ -26,7 +26,7 @@ security = HTTPBearer(auto_error=False)
 
 DEFAULT_CATEGORIES = [
     "Groceries","Food","Transport","Home","Health",
-    "Clothing","Entertainment","Utilities","Income","Transfer","Other"
+    "Clothing","Entertainment","Utilities","Income","Transfer","Unassigned"
 ]
 
 # ── DB ────────────────────────────────────────────────────────────────────────
@@ -183,7 +183,7 @@ def guess_category(desc: str, conn=None) -> str:
     if any(k in d for k in ["kmart","bunnings","ikea","officeworks","harvey"]): return "Home"
     if any(k in d for k in ["vodafone","exetel","optus","telstra"]): return "Utilities"
     if any(k in d for k in ["salary","wage","payroll","income"]): return "Income"
-    return "Other"
+    return "Unassigned"
 
 def row_to_tx(row) -> dict:
     p1, p2, amt = row["person1_pct"], row["person2_pct"], row["amount"]
@@ -314,15 +314,23 @@ def list_transactions(
     if categories:
         cv = categories.split("|")
         base += f" AND category IN ({','.join('?'*len(cv))})"; params += cv
-    safe_cols = {"date","amount","merchant","category","notes","created_at"}
+    safe_cols = {"date","value_date","amount","merchant","category","notes","created_at"}
     sc = sort_col if sort_col in safe_cols else "date"
     sd = "ASC" if sort_dir.lower() == "asc" else "DESC"
+    # NULL-safe ordering: NULLs always sort last
+    def make_order(col, direction):
+        if col in ("date","value_date"):
+            if direction == "ASC":
+                return f"COALESCE({col},'9999-99-99') ASC"
+            else:
+                return f"CASE WHEN {col} IS NULL THEN 0 ELSE 1 END DESC, {col} DESC"
+        return f"{col} {direction}"
     total = conn.execute(f"SELECT COUNT(*) {base}", params).fetchone()[0]
     if select_all:
-        rows = conn.execute(f"SELECT id {base} ORDER BY {sc} {sd}", params).fetchall()
+        rows = conn.execute(f"SELECT id {base} ORDER BY {make_order(sc,sd)}", params).fetchall()
         conn.close()
         return {"transactions": [], "total": total, "all_ids": [r["id"] for r in rows]}
-    rows = conn.execute(f"SELECT * {base} ORDER BY {sc} {sd} LIMIT ? OFFSET ?", params + [limit, offset]).fetchall()
+    rows = conn.execute(f"SELECT * {base} ORDER BY {make_order(sc,sd)} LIMIT ? OFFSET ?", params + [limit, offset]).fetchall()
     conn.close()
     return {"transactions": [row_to_tx(r) for r in rows], "total": total, "all_ids": []}
 
@@ -528,7 +536,7 @@ def rename_category(old_name: str, body: dict):
 def delete_category(name: str):
     conn = get_db()
     conn.execute("DELETE FROM categories WHERE name=?", (name,))
-    conn.execute("UPDATE transactions SET category='Other' WHERE category=?", (name,))
+    conn.execute("UPDATE transactions SET category='Unassigned' WHERE category=?", (name,))
     conn.commit(); conn.close(); return {"ok": True}
 
 # ── Rules ─────────────────────────────────────────────────────────────────────
@@ -749,7 +757,7 @@ def export_xlsx(token: str = None, credentials: HTTPAuthorizationCredentials = D
     p2_start = float(s.get("person2_starting_balance","0"))
 
     rows = conn.execute(
-        "SELECT * FROM transactions WHERE is_starting_balance=0 ORDER BY date ASC, id ASC"
+        "SELECT * FROM transactions WHERE is_starting_balance=0 ORDER BY COALESCE(value_date,date) ASC, id ASC"
     ).fetchall()
     conn.close()
 
@@ -791,8 +799,9 @@ def export_xlsx(token: str = None, credentials: HTTPAuthorizationCredentials = D
         if p1 is not None:
             p1_bal += p1_amt; p2_bal += p2_amt
 
+        export_date = r["value_date"] or r["date"]
         row_data = [
-            r["date"], amt,
+            export_date, amt,
             p1_pct_disp, p2_pct_disp,
             p1_amt, p2_amt,
             r["merchant"], r["notes"], r["category"],
@@ -884,8 +893,8 @@ def parse_rows_xlsx(content_bytes: bytes, conn) -> tuple:
             notes = str(notes_val).strip() if notes_val else None
             if notes in ("START","None",""): notes = None
             cat_val = row[8]
-            category = str(cat_val).strip() if cat_val else "Other"
-            if not category or category == "None": category = "Other"
+            category = str(cat_val).strip() if cat_val else "Unassigned"
+            if not category or category in ("None","Other"): category = "Unassigned"
             is_transfer = 1 if category == "Transfer" else 0
             # Duplicate check against value_date primarily, then date
             dup = find_duplicate_xlsx(conn, mobile_date, amount, merchant, cfg)
