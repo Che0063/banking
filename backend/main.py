@@ -238,6 +238,41 @@ def find_duplicate(conn, date: str, amount: float, merchant: str, cfg: dict) -> 
             return dict(r)
     return None
 
+def find_duplicate_xlsx(conn, mobile_date: str, amount: float, merchant: str, cfg: dict) -> Optional[dict]:
+    """Duplicate detection for xlsx imports: matches against value_date (mobile) primarily,
+    also falls back to date. A match on either date field within tolerance is accepted."""
+    if not (cfg["match_date"] or cfg["match_amount"] or cfg["match_merchant"]):
+        return None
+    rows = conn.execute("SELECT * FROM transactions WHERE is_starting_balance=0").fetchall()
+    tol = cfg["date_tolerance"]
+    try:
+        incoming_dt = datetime.strptime(mobile_date, "%Y-%m-%d")
+    except Exception:
+        return None
+    for r in rows:
+        # Try matching against value_date first, then fall back to date
+        date_ok = False
+        if not cfg["match_date"]:
+            date_ok = True
+        else:
+            for date_field in (r["value_date"], r["date"]):
+                if not date_field: continue
+                try:
+                    existing_dt = datetime.strptime(date_field, "%Y-%m-%d")
+                    if abs((incoming_dt - existing_dt).days) <= tol:
+                        date_ok = True; break
+                except Exception:
+                    continue
+        if not date_ok: continue
+        amount_ok = (not cfg["match_amount"]) or abs(r["amount"] - amount) < 0.001
+        merchant_ok = True
+        if cfg["match_merchant"]:
+            sim = merchant_similarity(r["merchant"], merchant)
+            merchant_ok = sim >= cfg["merchant_threshold"]
+        if amount_ok and merchant_ok:
+            return dict(r)
+    return None
+
 # ── Models ────────────────────────────────────────────────────────────────────
 class TransactionIn(BaseModel):
     date: str; value_date: Optional[str] = None; amount: float
@@ -605,6 +640,76 @@ def rule_suggestions():
         if s["pattern"] not in seen: seen[s["pattern"]] = s
     return sorted(seen.values(), key=lambda x: -x["count"])[:20]
 
+@app.post("/api/import/attach-statement-dates", dependencies=[Depends(check_auth)])
+async def attach_statement_dates(file: UploadFile = File(...)):
+    """Parse a CommBank CSV and attach statement dates to existing transactions.
+    For each CSV row, find a matching transaction (by amount + merchant similarity + value_date
+    within tolerance) and update its `date` field with the CSV's statement date.
+    No transactions are created or deleted."""
+    content = await file.read()
+    conn = get_db()
+    cfg = get_dup_config(conn)
+    existing = conn.execute("SELECT * FROM transactions WHERE is_starting_balance=0").fetchall()
+    existing = [dict(r) for r in existing]
+    tol = cfg["date_tolerance"]
+
+    updated = 0; unmatched = 0
+    try:
+        text = content.decode("utf-8", errors="replace")
+    except Exception:
+        raise HTTPException(400, "Could not decode file")
+
+    reader = csv.reader(io.StringIO(text))
+    for row in reader:
+        if len(row) < 3: continue
+        try:
+            statement_date = parse_date(row[0].strip())
+            if not statement_date: continue
+            amount = float(row[1].strip())
+            description = row[2].strip()
+            value_date = extract_value_date(description) or statement_date
+            merchant = clean_merchant(description)
+            if len(merchant) < 2: continue
+        except Exception:
+            continue
+
+        # Try to find a matching existing transaction
+        # Match: amount exact + merchant similarity + value_date within tolerance
+        best = None; best_score = 0
+        try:
+            vd_dt = datetime.strptime(value_date, "%Y-%m-%d")
+        except Exception:
+            continue
+        for r in existing:
+            if abs(r["amount"] - amount) >= 0.001: continue
+            # Check value_date match
+            date_ok = False
+            for df in (r.get("value_date"), r.get("date")):
+                if not df: continue
+                try:
+                    if abs((vd_dt - datetime.strptime(df, "%Y-%m-%d")).days) <= tol:
+                        date_ok = True; break
+                except Exception: continue
+            if not date_ok: continue
+            sim = merchant_similarity(r["merchant"], merchant)
+            if sim >= cfg["merchant_threshold"] and sim > best_score:
+                best = r; best_score = sim
+
+        if best:
+            # Only update if statement date is genuinely different / missing
+            if best.get("date") != statement_date:
+                conn.execute("UPDATE transactions SET date=? WHERE id=?",
+                             (statement_date, best["id"]))
+                updated += 1
+            # Remove from candidates to avoid double-matching
+            existing = [x for x in existing if x["id"] != best["id"]]
+        else:
+            unmatched += 1
+
+    conn.commit(); conn.close()
+    return {"updated": updated, "unmatched": unmatched}
+
+
 # ── Settings ──────────────────────────────────────────────────────────────────
 @app.get("/api/settings", dependencies=[Depends(check_auth)])
 def get_settings():
@@ -748,6 +853,11 @@ def parse_rows_commbank(content_bytes: bytes, conn) -> tuple:
     return pending, skipped
 
 def parse_rows_xlsx(content_bytes: bytes, conn) -> tuple:
+    """Parse the shared spreadsheet format.
+    Column layout: Date(mobile/value) | Total Amount | %P1 | %P2 | $P1 | $P2 | Merchant | Notes | Category | ...
+    The spreadsheet's Date column is the mobile/value date (transaction settlement date).
+    There is no statement date in this format — we use the mobile date for both fields.
+    """
     import openpyxl
     wb = openpyxl.load_workbook(io.BytesIO(content_bytes), data_only=True)
     ws = wb.active
@@ -757,10 +867,10 @@ def parse_rows_xlsx(content_bytes: bytes, conn) -> tuple:
         try:
             raw_date = row[0]
             if raw_date is None: continue
-            if isinstance(raw_date, datetime): iso_date = raw_date.strftime("%Y-%m-%d")
+            if isinstance(raw_date, datetime): mobile_date = raw_date.strftime("%Y-%m-%d")
             elif isinstance(raw_date, str):
-                iso_date = parse_date(raw_date)
-                if not iso_date: skipped += 1; continue
+                mobile_date = parse_date(raw_date)
+                if not mobile_date: skipped += 1; continue
             else: skipped += 1; continue
             raw_amount = row[1]
             if raw_amount is None or isinstance(raw_amount, str): skipped += 1; continue
@@ -777,14 +887,19 @@ def parse_rows_xlsx(content_bytes: bytes, conn) -> tuple:
             category = str(cat_val).strip() if cat_val else "Other"
             if not category or category == "None": category = "Other"
             is_transfer = 1 if category == "Transfer" else 0
-            dup = find_duplicate(conn, iso_date, amount, merchant, cfg)
+            # Duplicate check against value_date primarily, then date
+            dup = find_duplicate_xlsx(conn, mobile_date, amount, merchant, cfg)
             pending.append({
-                "date": iso_date, "value_date": None, "amount": amount,
+                # date = mobile_date (best available; no statement date in xlsx format)
+                # value_date = mobile_date (this IS the settlement/mobile date)
+                "date": mobile_date, "value_date": mobile_date, "amount": amount,
                 "merchant": merchant, "category": category, "notes": notes,
                 "person1_pct": p1_pct, "person2_pct": p2_pct,
                 "is_transfer": is_transfer, "duplicate_of": dup,
+                "_source": "xlsx",
             })
-        except Exception: skipped += 1
+        except Exception as e:
+            skipped += 1
     return pending, skipped
 
 @app.post("/api/import/commbank/parse", dependencies=[Depends(check_auth)])
@@ -816,11 +931,20 @@ class ImportConfirmIn(BaseModel):
 @app.post("/api/import/confirm", dependencies=[Depends(check_auth)])
 def confirm_import(body: ImportConfirmIn):
     conn = get_db()
-    imported = skipped = 0
+    imported = skipped = replaced = 0
     tx_ids = []
     source = body.rows[0].get("_source","unknown") if body.rows else "unknown"
     for row in body.rows:
-        if row.get("action") == "skip": skipped += 1; continue
+        action = row.get("action","import")
+        if action == "skip": skipped += 1; continue
+        # Replace: update existing transaction's value_date (pending -> finalised fix)
+        if action == "replace":
+            dup = row.get("duplicate_of")
+            if dup and dup.get("id"):
+                conn.execute("UPDATE transactions SET value_date=? WHERE id=?",
+                             (row.get("value_date") or None, dup["id"]))
+                replaced += 1
+            continue
         try:
             conn.execute(
                 "INSERT INTO transactions (date,value_date,amount,merchant,category,notes,person1_pct,person2_pct,is_transfer) VALUES (?,?,?,?,?,?,?,?,?)",
@@ -838,7 +962,7 @@ def confirm_import(body: ImportConfirmIn):
         for tid in tx_ids:
             conn.execute("INSERT INTO import_session_ids VALUES (?,?)", (session_id, tid))
     conn.commit(); conn.close()
-    return {"imported": imported, "skipped": skipped}
+    return {"imported": imported, "replaced": replaced, "skipped": skipped}
 
 @app.get("/api/import/sessions", dependencies=[Depends(check_auth)])
 def list_import_sessions():

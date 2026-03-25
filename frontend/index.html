@@ -218,7 +218,7 @@ function TxModal({tx,onClose,onSave,settings,categories}){
   const p1pct=f.p1pct===''?null:parseFloat(f.p1pct)/100;
   const p2pct=p1pct!=null?1-p1pct:null;
   const save=async()=>{if(!f.merchant.trim()){setErr('Merchant required.');return;}if(!f.amount||isNaN(parseFloat(f.amount))){setErr('Amount required.');return;}setSaving(true);try{await onSave({date:f.date,value_date:f.vd||null,amount:parseFloat(f.amount),merchant:f.merchant.trim(),category:f.category,notes:f.notes.trim()||null,person1_pct:p1pct,is_transfer:f.category==='Transfer',is_starting_balance:f.is_sb});onClose();}catch{setErr('Save failed.');setSaving(false);}};
-  return(<div className="overlay" onClick={e=>e.target===e.currentTarget&&onClose()}><div className="modal"><div className="mhdr"><h3>{isEdit?'Edit Transaction':'Add Transaction'}</h3><button className="btn btn-ghost btn-sm" onClick={onClose}><I n="x"/></button></div><div className="mbody"><div className="form-grid"><div className="form-grid form-2"><div className="form-group"><label className="form-label">Desktop Date</label><input type="date" className="form-input" value={f.date} onChange={e=>set('date',e.target.value)}/></div><div className="form-group"><label className="form-label">Mobile Date</label><input type="date" className="form-input" value={f.vd} onChange={e=>set('vd',e.target.value)}/>{!f.vd&&<span className="form-hint">Blank = Pending</span>}</div></div><div className="form-group"><label className="form-label">Amount ($)</label><input type="number" className="form-input" step="0.01" placeholder="-25.00" value={f.amount} onChange={e=>set('amount',e.target.value)}/></div><div className="form-group"><label className="form-label">Merchant</label><input type="text" className="form-input" value={f.merchant} onChange={e=>set('merchant',e.target.value)}/></div><div className="form-grid form-2"><div className="form-group"><label className="form-label">Category</label><select className="form-select" value={f.category} onChange={e=>set('category',e.target.value)}>{categories.map(c=><option key={c}>{c}</option>)}</select></div><div className="form-group"><label className="form-label">Notes</label><input type="text" className="form-input" value={f.notes} onChange={e=>set('notes',e.target.value)}/></div></div><label style={{display:'flex',alignItems:'center',gap:8,fontSize:13,cursor:'pointer'}}><input type="checkbox" checked={f.is_sb} onChange={e=>set('is_sb',e.target.checked)}/>Starting balance entry</label>{f.category!=='Transfer'&&!f.is_sb&&<div className="form-group"><label className="form-label">Split (% or $ toggle)</label><SplitInput label={settings.person1_name} pct={p1pct} onPctChange={v=>set('p1pct',v)} amount={amount}/><SplitInput label={settings.person2_name} pct={p2pct} readonly amount={amount}/>{f.p1pct===''&&<p style={{fontSize:12,color:'var(--warn)',marginTop:4}}>No split entered → Pending</p>}</div>}{err&&<p style={{color:'var(--danger)',fontSize:13}}>{err}</p>}</div></div><div className="mfoot"><button className="btn btn-secondary" onClick={onClose}>Cancel</button><button className="btn btn-primary" onClick={save} disabled={saving}>{saving?'Saving…':isEdit?'Save Changes':'Add'}</button></div></div></div>);
+  return(<div className="overlay" onClick={e=>e.target===e.currentTarget&&onClose()}><div className="modal"><div className="mhdr"><h3>{isEdit?'Edit Transaction':'Add Transaction'}</h3><button className="btn btn-ghost btn-sm" onClick={onClose}><I n="x"/></button></div><div className="mbody"><div className="form-grid"><div className="form-grid form-2"><div className="form-group"><label className="form-label">Statement Date</label><input type="date" className="form-input" value={f.date} onChange={e=>set('date',e.target.value)}/></div><div className="form-group"><label className="form-label">Mobile Date</label><input type="date" className="form-input" value={f.vd} onChange={e=>set('vd',e.target.value)}/>{!f.vd&&<span className="form-hint">Blank = Pending</span>}</div></div><div className="form-group"><label className="form-label">Amount ($)</label><input type="number" className="form-input" step="0.01" placeholder="-25.00" value={f.amount} onChange={e=>set('amount',e.target.value)}/></div><div className="form-group"><label className="form-label">Merchant</label><input type="text" className="form-input" value={f.merchant} onChange={e=>set('merchant',e.target.value)}/></div><div className="form-grid form-2"><div className="form-group"><label className="form-label">Category</label><select className="form-select" value={f.category} onChange={e=>set('category',e.target.value)}>{categories.map(c=><option key={c}>{c}</option>)}</select></div><div className="form-group"><label className="form-label">Notes</label><input type="text" className="form-input" value={f.notes} onChange={e=>set('notes',e.target.value)}/></div></div><label style={{display:'flex',alignItems:'center',gap:8,fontSize:13,cursor:'pointer'}}><input type="checkbox" checked={f.is_sb} onChange={e=>set('is_sb',e.target.checked)}/>Starting balance entry</label>{f.category!=='Transfer'&&!f.is_sb&&<div className="form-group"><label className="form-label">Split (% or $ toggle)</label><SplitInput label={settings.person1_name} pct={p1pct} onPctChange={v=>set('p1pct',v)} amount={amount}/><SplitInput label={settings.person2_name} pct={p2pct} readonly amount={amount}/>{f.p1pct===''&&<p style={{fontSize:12,color:'var(--warn)',marginTop:4}}>No split entered → Pending</p>}</div>}{err&&<p style={{color:'var(--danger)',fontSize:13}}>{err}</p>}</div></div><div className="mfoot"><button className="btn btn-secondary" onClick={onClose}>Cancel</button><button className="btn btn-primary" onClick={save} disabled={saving}>{saving?'Saving…':isEdit?'Save Changes':'Add'}</button></div></div></div>);
 }
 
 // ── Bulk Edit Modal ───────────────────────────────────────────────────────────
@@ -282,135 +282,221 @@ function RulePreviewModal({changes,onClose,onApply}){
 // ── Import Review Modal ───────────────────────────────────────────────────────
 function ImportReviewModal({rows,skipped,onClose,onConfirm}){
   const dups=rows.filter(r=>r.duplicate_of);
-  const clean=rows.filter(r=>!r.duplicate_of);
-  // For each row: action = 'import' | 'skip'
   const [actions,setActions]=useState(()=>{
-    const m={};
-    rows.forEach((r,i)=>{m[i]=r.duplicate_of?'skip':'import';});
-    return m;
+    const m={};rows.forEach((r,i)=>{m[i]=r.duplicate_of?'skip':'import';});return m;
   });
+  // Editable value_dates (mobile date) per row index
+  const [vdEdits,setVdEdits]=useState(()=>{const m={};rows.forEach((r,i)=>{m[i]=r.value_date||'';});return m;});
   const [saving,setSaving]=useState(false);
   const [curBal,setCurBal]=useState(null);
   const [targetBal,setTargetBal]=useState('');
   const [solveMsg,setSolveMsg]=useState('');
+  const [sortByMobile,setSortByMobile]=useState(false);
+  const [expandedDups,setExpandedDups]=useState(new Set());
   useEffect(()=>{authFetch(`${API}/api/summary`).then(r=>r.json()).then(d=>setCurBal(d));},[]);
   const setAction=(i,v)=>setActions(a=>({...a,[i]:v}));
+  const setVd=(i,v)=>setVdEdits(a=>({...a,[i]:v}));
+  const toggleDupExpand=i=>setExpandedDups(s=>{const n=new Set(s);n.has(i)?n.delete(i):n.add(i);return n;});
 
-  // Auto-suggest: given expected shared balance, find combo of dup skip/imports that gets closest
   const solveBalance=()=>{
     if(!curBal||targetBal==='')return;
-    const target=parseFloat(targetBal);
-    if(isNaN(target)){setSolveMsg('Enter a valid number.');return;}
-    // Non-dup rows are fixed (always imported)
-    const baseImport=rows.filter((_,i)=>!rows[i].duplicate_of);
+    const target=parseFloat(targetBal);if(isNaN(target)){setSolveMsg('Enter a valid number.');return;}
+    const baseAmt=rows.filter((_,i)=>!rows[i].duplicate_of).reduce((s,r)=>s+(r.amount||0),0);
     const dupRows=rows.map((r,i)=>({...r,_i:i})).filter(r=>r.duplicate_of);
-    const baseAmt=baseImport.reduce((s,r)=>s+(r.amount||0),0);
-    const currentShared=curBal.shared_balance;
-    // Try all 2^n combos for dup rows (up to 20)
-    const n=Math.min(dupRows.length,20);
-    const subDups=dupRows.slice(0,n);
+    const n=Math.min(dupRows.length,20);const subDups=dupRows.slice(0,n);
     let bestDiff=Infinity,bestMask=0;
     for(let mask=0;mask<(1<<n);mask++){
-      let dupAmt=0;
-      for(let b=0;b<n;b++){if(mask&(1<<b))dupAmt+=subDups[b].amount||0;}
-      const proj=currentShared+baseAmt+dupAmt;
-      const diff=Math.abs(proj-target);
+      let da=0;for(let b=0;b<n;b++){if(mask&(1<<b))da+=subDups[b].amount||0;}
+      const diff=Math.abs(curBal.shared_balance+baseAmt+da-target);
       if(diff<bestDiff){bestDiff=diff;bestMask=mask;}
     }
-    // Apply best mask
-    const newActions={...actions};
-    // Set all non-dup rows to import
-    rows.forEach((_,i)=>{if(!rows[i].duplicate_of)newActions[i]='import';});
-    // Set dup rows per best mask
-    subDups.forEach((r,b)=>{newActions[r._i]=(bestMask&(1<<b))?'import':'skip';});
-    // Remaining dups beyond n: default skip
-    dupRows.slice(n).forEach(r=>{newActions[r._i]='skip';});
-    setActions(newActions);
-    const finalAmt=baseAmt+subDups.reduce((s,r,b)=>(bestMask&(1<<b))?s+(r.amount||0):s,0);
-    const finalBal=currentShared+finalAmt;
-    setSolveMsg(`Best match: $${finalBal.toFixed(2)} (off by $${bestDiff.toFixed(2)}). Duplicates adjusted above.`);
+    const newA={...actions};
+    rows.forEach((_,i)=>{if(!rows[i].duplicate_of)newA[i]='import';});
+    subDups.forEach((r,b)=>{newA[r._i]=(bestMask&(1<<b))?'import':'skip';});
+    dupRows.slice(n).forEach(r=>{newA[r._i]='skip';});
+    setActions(newA);
+    const finalAmt=rows.filter((_,i)=>newA[i]==='import').reduce((s,r)=>s+(r.amount||0),0);
+    setSolveMsg(`Best: $${(curBal.shared_balance+finalAmt).toFixed(2)} (±$${bestDiff.toFixed(2)})`);
   };
   const setAllDups=v=>{const m={...actions};rows.forEach((r,i)=>{if(r.duplicate_of)m[i]=v;});setActions(m);};
   const importCount=Object.values(actions).filter(v=>v==='import').length;
+  const replaceCount=Object.values(actions).filter(v=>v==='replace').length;
 
   const confirm=async()=>{
     setSaving(true);
-    const payload=rows.map((r,i)=>({...r,action:actions[i]}));
-    await onConfirm(payload);
-    setSaving(false);
+    const payload=rows.map((r,i)=>({...r,value_date:vdEdits[i]||null,action:actions[i]}));
+    await onConfirm(payload);setSaving(false);
   };
 
-  return(<div className="overlay"><div className="modal modal-xl"><div className="mhdr"><h3>Review Import — {rows.length} rows parsed</h3><button className="btn btn-ghost btn-sm" onClick={onClose}><I n="x"/></button></div>
-  <div className="mbody" style={{padding:'12px 24px'}}>
-    {curBal&&(()=>{
-    const toImport=rows.filter((_,i)=>actions[i]==='import');
-    const dShared=toImport.reduce((s,r)=>s+(r.amount||0),0);
-    const dP1=toImport.reduce((s,r)=>{if(r.person1_pct!=null)return s+r.person1_pct*(r.amount||0);return s;},0);
-    const dP2=toImport.reduce((s,r)=>{if(r.person2_pct!=null)return s+r.person2_pct*(r.amount||0);return s;},0);
-    const projShared=curBal.shared_balance+dShared;
-    const projP1=curBal.person1_balance+dP1;
-    const projP2=curBal.person2_balance+dP2;
-    return(<div style={{display:'flex',gap:14,marginBottom:14,padding:'10px 14px',background:'var(--surface2)',borderRadius:'var(--radius-sm)',fontSize:12.5,flexWrap:'wrap',alignItems:'center'}}>
-      <span style={{color:'var(--text3)',fontSize:12}}>After import ({importCount} rows):</span>
-      <span><strong>Shared:</strong> <span className={projShared>=0?'amt-pos':'amt-neg'}>{fmt(projShared)}</span></span>
-      <span><strong>P1:</strong> {fmt(projP1)}</span>
-      <span><strong>P2:</strong> {fmt(projP2)}</span>
-      <span style={{color:'var(--text3)',fontSize:11.5}}>({dShared>=0?'+':''}{dShared.toFixed(2)} net)</span>
-    </div>);
-  })()}
-  {dups.length>0&&<div style={{background:'var(--accent-light)',border:'1px solid #bdddd4',borderRadius:'var(--radius-sm)',padding:'12px 14px',marginBottom:10,display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}>
-    <span style={{fontSize:13,color:'var(--accent)',fontWeight:500}}>Auto-select duplicates by expected balance</span>
-    <span style={{fontSize:12.5,color:'var(--text2)'}}>Enter what you expect the shared balance to be after import:</span>
-    <input type="number" step="0.01" placeholder="e.g. 1234.56" value={targetBal} onChange={e=>setTargetBal(e.target.value)} style={{width:120,padding:'5px 8px',border:'1px solid var(--border)',borderRadius:'var(--radius-sm)',fontFamily:'DM Mono',fontSize:13}}/>
-    <button className="btn btn-primary btn-sm" onClick={solveBalance}>Suggest</button>
-    {solveMsg&&<span style={{fontSize:12,color:'var(--accent)',fontStyle:'italic'}}>{solveMsg}</span>}
-  </div>}
-  {dups.length>0&&<div style={{background:'var(--warn-light)',border:'1px solid #fce4b2',borderRadius:'var(--radius-sm)',padding:'10px 14px',marginBottom:14}}>
-      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:8}}>
-        <span style={{fontSize:13,color:'var(--warn)',fontWeight:500}}><I n="warn" s={14}/> {dups.length} possible duplicate{dups.length!==1?'s':''} found (highlighted below)</span>
-        <div style={{display:'flex',gap:8}}>
-          <button className="btn btn-secondary btn-sm" onClick={()=>setAllDups('skip')}>Skip all duplicates</button>
-          <button className="btn btn-secondary btn-sm" onClick={()=>setAllDups('import')}>Import all duplicates</button>
-        </div>
+  // Build display rows: attach index to each row, then sort if needed
+  const indexedRows=rows.map((r,i)=>({...r,_i:i,_vd:vdEdits[i]||r.value_date||''}));
+  const sorted=sortByMobile?[...indexedRows].sort((a,b)=>{
+    const ad=a._vd||a.date||'';const bd=b._vd||b.date||'';
+    return ad<bd?-1:ad>bd?1:0;
+  }):indexedRows;
+
+  // Group by display date for demarcation
+  const getGroupDate=r=>sortByMobile?(r._vd||r.date||''):(r.date||'');
+
+  // Count existing DB transactions per date for context
+  const [dbCounts,setDbCounts]=useState({});
+  useEffect(()=>{
+    // Get column values for dates to show counts
+    authFetch(`${API}/api/transactions?limit=9999&sort_col=date&sort_dir=asc`).then(r=>r.json()).then(d=>{
+      const counts={};
+      (d.transactions||[]).forEach(t=>{
+        const k=t.value_date||t.date;if(k)counts[k]=(counts[k]||0)+1;
+      });
+      setDbCounts(counts);
+    });
+  },[]);
+
+  // Projected balance
+  const toImportRows=rows.filter((_,i)=>actions[i]==='import');
+  const dShared=toImportRows.reduce((s,r)=>s+(r.amount||0),0);
+  const projShared=curBal?(curBal.shared_balance+dShared):null;
+
+  // Render rows grouped with day dividers
+  const renderedRows=[];let lastGroupDate='';
+  sorted.forEach((r,si)=>{
+    const i=r._i;const isDup=!!r.duplicate_of;const action=actions[i];
+    const gd=getGroupDate(r);
+    if(gd!==lastGroupDate){
+      const dbCount=dbCounts[gd]||0;
+      const pendingCount=sorted.filter(x=>getGroupDate(x)===gd).length;
+      renderedRows.push(
+        <tr key={`div-${gd}`}>
+          <td colSpan={8} style={{padding:'4px 10px',background:'var(--surface2)',borderTop:'2px solid var(--border)',borderBottom:'1px solid var(--border)',fontSize:11,color:'var(--text2)',fontWeight:600,letterSpacing:'.3px'}}>
+            <span style={{fontFamily:'DM Mono'}}>{gd||'No date'}</span>
+            <span style={{marginLeft:12,fontWeight:400,color:'var(--text3)'}}>
+              {pendingCount} incoming · {dbCount} already in DB
+            </span>
+          </td>
+        </tr>
+      );
+      lastGroupDate=gd;
+    }
+    const dupOf=r.duplicate_of;
+    const isExpanded=expandedDups.has(i);
+    renderedRows.push(
+      <tr key={i} style={{background:isDup?(action==='skip'?'#fff5e6':'#fff9ed'):(action==='skip'?'#f8f8f8':'white'),borderLeft:isDup?'3px solid var(--warn)':'none'}}>
+        <td style={{padding:'7px 8px',borderBottom:'1px solid var(--border)',fontFamily:'DM Mono',fontSize:10.5}}>{r.date}</td>
+        <td style={{padding:'7px 8px',borderBottom:'1px solid var(--border)'}}>
+          <input type="date" value={vdEdits[i]} onChange={e=>setVd(i,e.target.value)}
+            style={{fontFamily:'DM Mono',fontSize:10.5,border:'1px solid var(--border)',borderRadius:3,padding:'2px 4px',background:vdEdits[i]?'white':'#fff8f0',width:108,color:vdEdits[i]?'var(--text)':'var(--warn)'}}/>
+        </td>
+        <td style={{padding:'7px 8px',borderBottom:'1px solid var(--border)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:160,fontSize:12}}>{r.merchant}</td>
+        <td style={{padding:'7px 8px',borderBottom:'1px solid var(--border)',fontFamily:'DM Mono',fontSize:11,textAlign:'right',color:r.amount<0?'var(--danger)':'var(--income)',whiteSpace:'nowrap'}}>{fmt(r.amount)}</td>
+        <td style={{padding:'7px 8px',borderBottom:'1px solid var(--border)'}}><span className="badge badge-cat" style={{fontSize:10}}>{r.category}</span></td>
+        <td style={{padding:'7px 8px',borderBottom:'1px solid var(--border)',minWidth:90}}>
+          {isDup?(
+            <button onClick={()=>toggleDupExpand(i)} style={{fontSize:10,padding:'2px 6px',border:'1px solid var(--warn)',borderRadius:3,background:'var(--warn-light)',color:'var(--warn)',cursor:'pointer',whiteSpace:'nowrap'}}>
+              {isExpanded?'▲ Hide':'⚠ Dup of →'}
+            </button>
+          ):<span className="badge" style={{background:'var(--accent-light)',color:'var(--accent)',fontSize:10}}>New</span>}
+        </td>
+        <td style={{padding:'7px 8px',borderBottom:'1px solid var(--border)',minWidth:120}}>
+          <div style={{display:'flex',gap:3,flexWrap:'wrap'}}>
+            <button className={`btn btn-sm${action==='import'?' btn-primary':' btn-secondary'}`} style={{padding:'2px 7px',fontSize:10.5}} onClick={()=>setAction(i,'import')}>✓ Import</button>
+            <button className={`btn btn-sm${action==='skip'?' btn-danger':' btn-secondary'}`} style={{padding:'2px 7px',fontSize:10.5}} onClick={()=>setAction(i,'skip')}>✕ Skip</button>
+            {isDup&&<button className={`btn btn-sm${action==='replace'?' btn-primary':' btn-secondary'}`} style={{padding:'2px 7px',fontSize:10.5,background:action==='replace'?'#6c3483':'',borderColor:action==='replace'?'#6c3483':''}} onClick={()=>setAction(i,'replace')} title="Update existing transaction with this mobile date (fixes pending→finalised)">↻ Replace</button>}
+          </div>
+        </td>
+      </tr>
+    );
+    // If expanded, show the existing DB transaction side-by-side
+    if(isDup&&isExpanded&&dupOf){
+      renderedRows.push(
+        <tr key={`dup-detail-${i}`}>
+          <td colSpan={8} style={{padding:'0 8px 8px 28px',borderBottom:'1px solid var(--border)',background:'#fffbf0'}}>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,padding:'8px 10px',background:'white',border:'1px solid #fce4b2',borderRadius:6,fontSize:12}}>
+              <div>
+                <div style={{fontSize:10.5,fontWeight:600,color:'var(--warn)',marginBottom:4,textTransform:'uppercase',letterSpacing:'.3px'}}>Incoming (CSV)</div>
+                <div style={{fontFamily:'DM Mono',fontSize:11,marginBottom:2}}>Statement: {r.date} · Mobile: {vdEdits[i]||<span style={{color:'var(--warn)'}}>Pending</span>}</div>
+                <div style={{fontSize:12.5,fontWeight:500,marginBottom:1}}>{r.merchant}</div>
+                <div style={{fontFamily:'DM Mono',color:r.amount<0?'var(--danger)':'var(--income)',fontSize:13,fontWeight:600}}>{fmt(r.amount)}</div>
+                <div style={{fontSize:11,color:'var(--text3)',marginTop:2}}>{r.category}</div>
+              </div>
+              <div style={{borderLeft:'2px solid #fce4b2',paddingLeft:10}}>
+                <div style={{fontSize:10.5,fontWeight:600,color:'var(--text2)',marginBottom:4,textTransform:'uppercase',letterSpacing:'.3px'}}>Existing in DB</div>
+                <div style={{fontFamily:'DM Mono',fontSize:11,marginBottom:2}}>Statement: {dupOf.date} · Mobile: {dupOf.value_date||<span style={{color:'var(--warn)'}}>Pending</span>}</div>
+                <div style={{fontSize:12.5,fontWeight:500,marginBottom:1}}>{dupOf.merchant}</div>
+                <div style={{fontFamily:'DM Mono',color:dupOf.amount<0?'var(--danger)':'var(--income)',fontSize:13,fontWeight:600}}>{fmt(dupOf.amount)}</div>
+                <div style={{fontSize:11,color:'var(--text3)',marginTop:2}}>{dupOf.category} {dupOf.person1_pct!=null?`· ${Math.round(dupOf.person1_pct*100)}/${Math.round(dupOf.person2_pct*100)}`:'· Pending split'}</div>
+              </div>
+            </div>
+          </td>
+        </tr>
+      );
+    }
+  });
+
+  return(<div className="overlay"><div className="modal modal-xl" style={{maxWidth:1080}}>
+    <div className="mhdr">
+      <h3>Review Import — {rows.length} rows</h3>
+      <div style={{display:'flex',gap:8,alignItems:'center'}}>
+        <label style={{fontSize:12.5,display:'flex',alignItems:'center',gap:5,cursor:'pointer',color:'var(--text2)'}}>
+          <input type="checkbox" checked={sortByMobile} onChange={e=>setSortByMobile(e.target.checked)}/> Sort by mobile date
+        </label>
+        <button className="btn btn-ghost btn-sm" onClick={onClose}><I n="x"/></button>
       </div>
-    </div>}
-    <div style={{overflowY:'auto',maxHeight:'55vh'}}>
-      <table style={{width:'100%',fontSize:12.5,tableLayout:'fixed'}}>
-        <thead><tr>
-          <th style={{padding:'8px 10px',borderBottom:'1px solid var(--border)',color:'var(--text3)',fontSize:11,textTransform:'uppercase',width:90}}>Desktop</th><th style={{padding:'8px 10px',borderBottom:'1px solid var(--border)',color:'var(--text3)',fontSize:11,textTransform:'uppercase',width:90}}>Mobile</th>
-          <th style={{padding:'8px 10px',borderBottom:'1px solid var(--border)',color:'var(--text3)',fontSize:11,textTransform:'uppercase'}}>Merchant</th>
-          <th style={{padding:'8px 10px',borderBottom:'1px solid var(--border)',color:'var(--text3)',fontSize:11,textTransform:'uppercase',width:80}}>Amount</th>
-          <th style={{padding:'8px 10px',borderBottom:'1px solid var(--border)',color:'var(--text3)',fontSize:11,textTransform:'uppercase',width:90}}>Category</th>
-          <th style={{padding:'8px 10px',borderBottom:'1px solid var(--border)',color:'var(--text3)',fontSize:11,textTransform:'uppercase',width:80}}>Status</th>
-          <th style={{padding:'8px 10px',borderBottom:'1px solid var(--border)',color:'var(--text3)',fontSize:11,textTransform:'uppercase',width:130}}>Action</th>
-        </tr></thead>
-        <tbody>{rows.map((r,i)=>{
-          const isDup=!!r.duplicate_of;const action=actions[i];
-          return(<tr key={i} className={isDup?'dup-row':''} style={{opacity:action==='skip'?.5:1}}>
-            <td style={{padding:'8px 10px',borderBottom:'1px solid var(--border)',fontFamily:'DM Mono',fontSize:11}}>{r.date}</td><td style={{padding:'8px 10px',borderBottom:'1px solid var(--border)',fontFamily:'DM Mono',fontSize:11,color:'var(--text3)'}}>{r.value_date||<span style={{color:'#d4820a',fontSize:10}}>Pending</span>}</td>
-            <td style={{padding:'8px 10px',borderBottom:'1px solid var(--border)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{r.merchant}</td>
-            <td style={{padding:'8px 10px',borderBottom:'1px solid var(--border)',fontFamily:'DM Mono',fontSize:11.5,color:r.amount<0?'var(--danger)':'var(--income)'}}>{fmt(r.amount)}</td>
-            <td style={{padding:'8px 10px',borderBottom:'1px solid var(--border)'}}><span className="badge badge-cat" style={{fontSize:10.5}}>{r.category}</span></td>
-            <td style={{padding:'8px 10px',borderBottom:'1px solid var(--border)'}}>{isDup?<span className="badge badge-pending" style={{fontSize:10.5}}>Duplicate</span>:<span className="badge" style={{background:'var(--accent-light)',color:'var(--accent)',fontSize:10.5}}>New</span>}</td>
-            <td style={{padding:'8px 10px',borderBottom:'1px solid var(--border)'}}><div style={{display:'flex',gap:4}}>
-              <button className={`btn btn-sm${action==='import'?' btn-primary':' btn-secondary'}`} style={{padding:'3px 8px',fontSize:11}} onClick={()=>setAction(i,'import')}><I n="check" s={11}/>Import</button>
-              <button className={`btn btn-sm${action==='skip'?' btn-danger':' btn-secondary'}`} style={{padding:'3px 8px',fontSize:11}} onClick={()=>setAction(i,'skip')}><I n="x" s={11}/>Skip</button>
-            </div></td>
-          </tr>);
-        })}</tbody>
-      </table>
     </div>
-    {skipped>0&&<p style={{fontSize:12,color:'var(--text3)',marginTop:8}}>{skipped} rows could not be parsed and were excluded.</p>}
-  </div>
-  <div className="mfoot" style={{justifyContent:'space-between'}}>
-    <span style={{fontSize:13,color:'var(--text2)'}}>{importCount} of {rows.length} will be imported</span>
-    <div style={{display:'flex',gap:8}}>
-      <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
-      <button className="btn btn-primary" onClick={confirm} disabled={saving||importCount===0}>{saving?'Importing…':`Import ${importCount}`}</button>
+    <div className="mbody" style={{padding:'12px 24px'}}>
+      {/* Balance strip */}
+      {curBal&&<div style={{display:'flex',gap:14,marginBottom:10,padding:'8px 12px',background:'var(--surface2)',borderRadius:'var(--radius-sm)',fontSize:12.5,flexWrap:'wrap',alignItems:'center'}}>
+        <span style={{color:'var(--text3)',fontSize:12}}>After import ({importCount} rows):</span>
+        <span><strong>Shared:</strong> <span className={projShared>=0?'amt-pos':'amt-neg'}>{projShared!=null?fmt(projShared):'—'}</span></span>
+        <span><strong>P1:</strong> {fmt(curBal.person1_balance+toImportRows.reduce((s,r)=>r.person1_pct!=null?s+r.person1_pct*r.amount:s,0))}</span>
+        <span><strong>P2:</strong> {fmt(curBal.person2_balance+toImportRows.reduce((s,r)=>r.person2_pct!=null?s+r.person2_pct*r.amount:s,0))}</span>
+        <span style={{color:'var(--text3)',fontSize:11.5}}>({dShared>=0?'+':''}{dShared.toFixed(2)} net)</span>
+      </div>}
+      {/* Auto-solve for expected balance */}
+      {dups.length>0&&<div style={{background:'var(--accent-light)',border:'1px solid #bdddd4',borderRadius:'var(--radius-sm)',padding:'8px 12px',marginBottom:8,display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}>
+        <span style={{fontSize:12.5,color:'var(--accent)',fontWeight:500}}>Target balance:</span>
+        <input type="number" step="0.01" placeholder="Expected shared balance after import" value={targetBal} onChange={e=>setTargetBal(e.target.value)} style={{flex:1,minWidth:200,padding:'4px 8px',border:'1px solid var(--border)',borderRadius:'var(--radius-sm)',fontFamily:'DM Mono',fontSize:12.5}}/>
+        <button className="btn btn-primary btn-sm" onClick={solveBalance}>Suggest duplicates</button>
+        {solveMsg&&<span style={{fontSize:12,color:'var(--accent)',fontStyle:'italic'}}>{solveMsg}</span>}
+      </div>}
+      {/* xlsx date note */}
+      {rows.length>0&&rows[0]._source==='xlsx'&&<div style={{background:'#eef2ff',border:'1px solid #c7d2fe',borderRadius:'var(--radius-sm)',padding:'8px 12px',marginBottom:8,fontSize:12.5,color:'#3730a3'}}>
+        <strong>ℹ Spreadsheet import:</strong> The date column in your spreadsheet is the <strong>mobile/settlement date</strong>. It has been imported as both Statement and Mobile date. If you later import a CommBank CSV covering the same period, use <strong>↻ Replace</strong> on duplicates to attach the correct statement date to each transaction.
+      </div>}
+      {/* Dup controls */}
+      {dups.length>0&&<div style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:8,marginBottom:8,padding:'6px 10px',background:'var(--warn-light)',border:'1px solid #fce4b2',borderRadius:'var(--radius-sm)'}}>
+        <span style={{fontSize:12.5,color:'var(--warn)',fontWeight:500}}><I n="warn" s={13}/> {dups.length} possible duplicate{dups.length!==1?'s':''} — expand "⚠ Dup of →" to compare · use <span style={{background:'#6c3483',color:'white',padding:'1px 5px',borderRadius:3,fontSize:10}}>↻ Replace</span> to update existing transaction's mobile date (pending→finalised)</span>
+        <div style={{display:'flex',gap:6}}>
+          <button className="btn btn-secondary btn-sm" onClick={()=>setAllDups('skip')}>Skip all dups</button>
+          <button className="btn btn-secondary btn-sm" onClick={()=>setAllDups('import')}>Import all dups</button>
+        </div>
+      </div>}
+      <div style={{overflowY:'auto',maxHeight:'58vh'}}>
+        <table style={{width:'100%',fontSize:12.5,tableLayout:'fixed',borderCollapse:'collapse'}}>
+          <thead style={{position:'sticky',top:0,zIndex:2,background:'var(--surface)'}}>
+            <tr>
+              <th style={{padding:'7px 8px',borderBottom:'2px solid var(--border)',color:'var(--text3)',fontSize:10.5,textTransform:'uppercase',width:95,textAlign:'left'}}>Statement</th>
+              <th style={{padding:'7px 8px',borderBottom:'2px solid var(--border)',color:'var(--text3)',fontSize:10.5,textTransform:'uppercase',width:116,textAlign:'left'}}>Mobile <span style={{fontSize:9,fontWeight:400}}>(editable)</span></th>
+              <th style={{padding:'7px 8px',borderBottom:'2px solid var(--border)',color:'var(--text3)',fontSize:10.5,textTransform:'uppercase',textAlign:'left'}}>Merchant</th>
+              <th style={{padding:'7px 8px',borderBottom:'2px solid var(--border)',color:'var(--text3)',fontSize:10.5,textTransform:'uppercase',width:80,textAlign:'right'}}>Amount</th>
+              <th style={{padding:'7px 8px',borderBottom:'2px solid var(--border)',color:'var(--text3)',fontSize:10.5,textTransform:'uppercase',width:90}}>Category</th>
+              <th style={{padding:'7px 8px',borderBottom:'2px solid var(--border)',color:'var(--text3)',fontSize:10.5,textTransform:'uppercase',width:90}}>Status</th>
+              <th style={{padding:'7px 8px',borderBottom:'2px solid var(--border)',color:'var(--text3)',fontSize:10.5,textTransform:'uppercase',width:125}}>Action</th>
+            </tr>
+          </thead>
+          <tbody>{renderedRows}</tbody>
+        </table>
+      </div>
+      {skipped>0&&<p style={{fontSize:11.5,color:'var(--text3)',marginTop:6}}>{skipped} rows unparseable, excluded.</p>}
     </div>
-  </div>
+    <div className="mfoot" style={{justifyContent:'space-between'}}>
+      <span style={{fontSize:13,color:'var(--text2)'}}>{importCount} new · {replaceCount} replace · {Object.values(actions).filter(v=>v==='skip').length} skip</span>
+      <div style={{display:'flex',gap:8}}>
+        <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
+        <button className="btn btn-primary" onClick={confirm} disabled={saving||(importCount===0&&replaceCount===0)}>{saving?'Importing…':`Confirm ${importCount+replaceCount}`}</button>
+      </div>
+    </div>
   </div></div>);
 }
+
 
 // ── Dashboard ─────────────────────────────────────────────────────────────────
 const COLORS=['#1a5276','#2d6a4f','#c0392b','#d4820a','#6c3483','#117a65','#784212','#1a252f','#0e6655','#7b241c','#4a235a','#b7770d'];
@@ -487,18 +573,25 @@ function Dashboard({settings}){
           </div>
         </div>
         <p style={{fontSize:11.5,color:'var(--text3)',marginBottom:10}}>Bars = income &amp; expenses magnitude; line = net monthly surplus/deficit.</p>
-        <Recharts.ResponsiveContainer width="100%" height={220}>
-          <Recharts.ComposedChart data={monthlyData}>
-            <Recharts.CartesianGrid strokeDasharray="3 3" stroke="var(--border)"/>
-            <Recharts.XAxis dataKey="month" tick={{fontSize:11,fill:'var(--text3)'}} axisLine={false} tickLine={false}/>
-            <Recharts.YAxis tick={{fontSize:10,fill:'var(--text3)'}} axisLine={false} tickLine={false} tickFormatter={v=>`$${v}`} width={60} domain={[(yMin!==''&&!isNaN(Number(yMin)))?Number(yMin):'auto',(yMax!==''&&!isNaN(Number(yMax)))?Number(yMax):'auto']}/>
-            <Recharts.Tooltip content={<Tt/>}/>
-            <Recharts.Legend wrapperStyle={{fontSize:12}}/>
-            <Recharts.Bar dataKey="Income" fill="#1a5276" radius={[3,3,0,0]} opacity={0.7}/>
-            <Recharts.Bar dataKey="Expenses" fill="#c0392b" radius={[3,3,0,0]} opacity={0.7}/>
-            <Recharts.Line type="monotone" dataKey="Net" stroke="#2d6a4f" strokeWidth={2.5} dot={{r:3}} activeDot={{r:5}}/>
-          </Recharts.ComposedChart>
-        </Recharts.ResponsiveContainer>
+        {(()=>{
+          const cfMin=(yMin!==''&&!isNaN(Number(yMin)))?Number(yMin):null;
+          const cfMax=(yMax!==''&&!isNaN(Number(yMax)))?Number(yMax):null;
+          const cl=(v,mn,mx)=>{if(mx!=null&&v>mx)return mx;if(mn!=null&&v<mn)return mn;return v;};
+          const cfData=monthlyData.map(d=>({...d,Income:cl(d.Income,cfMin,cfMax),Expenses:cl(d.Expenses,cfMin,cfMax),Net:cl(d.Net,cfMin,cfMax)}));
+          const cfDataFull=cfMin!=null||cfMax!=null?[{month:'',Income:cfMin??0,Expenses:cfMin??0,Net:cfMin??0},...cfData,{month:'',Income:cfMax??0,Expenses:cfMax??0,Net:cfMax??0}]:cfData;
+          return(<Recharts.ResponsiveContainer width="100%" height={220}>
+            <Recharts.ComposedChart data={cfDataFull}>
+              <Recharts.CartesianGrid strokeDasharray="3 3" stroke="var(--border)"/>
+              <Recharts.XAxis dataKey="month" tick={{fontSize:11,fill:'var(--text3)'}} axisLine={false} tickLine={false}/>
+              <Recharts.YAxis tick={{fontSize:10,fill:'var(--text3)'}} axisLine={false} tickLine={false} tickFormatter={v=>`$${v}`} width={60} domain={[cfMin!=null?cfMin:'auto',cfMax!=null?cfMax:'auto']}/>
+              <Recharts.Tooltip content={({active,payload,label})=>{if(!label||!active||!payload?.length)return null;return(<div style={{background:'white',border:'1px solid var(--border)',borderRadius:8,padding:'10px 14px',fontSize:12.5}}><p style={{fontWeight:600,marginBottom:4,fontSize:11.5,color:'var(--text3)'}}>{label}</p>{payload.map((p,i2)=><p key={i2} style={{color:p.stroke||p.fill,margin:'2px 0'}}>{p.name}: <strong>${(p.value||0).toFixed(2)}</strong></p>)}</div>);}}/>
+              <Recharts.Legend wrapperStyle={{fontSize:12}}/>
+              <Recharts.Bar dataKey="Income" fill="#1a5276" radius={[3,3,0,0]} opacity={0.7}/>
+              <Recharts.Bar dataKey="Expenses" fill="#c0392b" radius={[3,3,0,0]} opacity={0.7}/>
+              <Recharts.Line type="monotone" dataKey="Net" stroke="#2d6a4f" strokeWidth={2.5} dot={{r:3}} activeDot={{r:5}}/>
+            </Recharts.ComposedChart>
+          </Recharts.ResponsiveContainer>);
+        })()}
       </div>
     </div>
 
@@ -514,18 +607,38 @@ function Dashboard({settings}){
           {(byMin||byMax)&&<button onClick={()=>{setByMin('');setByMax('');}} style={{border:'none',background:'none',cursor:'pointer',color:'var(--text3)',fontSize:11}}>✕</button>}
         </div>
       </div>
-      <Recharts.ResponsiveContainer width="100%" height={220}>
-        <Recharts.LineChart data={balHistory}>
-          <Recharts.CartesianGrid strokeDasharray="3 3" stroke="var(--border)"/>
-          <Recharts.XAxis dataKey="date" tick={{fontSize:10,fill:'var(--text3)'}} axisLine={false} tickLine={false} interval="preserveStartEnd"/>
-          <Recharts.YAxis tick={{fontSize:10,fill:'var(--text3)'}} axisLine={false} tickLine={false} tickFormatter={v=>`$${v}`} width={65} domain={[(byMin!==''&&!isNaN(Number(byMin)))?Number(byMin):'auto',(byMax!==''&&!isNaN(Number(byMax)))?Number(byMax):'auto']}/>
-          <Recharts.Tooltip content={({active,payload,label})=>{if(!active||!payload?.length)return null;return(<div style={{background:'white',border:'1px solid var(--border)',borderRadius:8,padding:'10px 14px',fontSize:12.5}}><p style={{fontWeight:600,marginBottom:4,fontSize:11.5,color:'var(--text3)'}}>{label}</p>{payload.map((p,i)=><p key={i} style={{color:p.stroke}}>{p.name}: <strong>${(p.value||0).toFixed(2)}</strong></p>)}</div>);}}/>
-          <Recharts.Legend wrapperStyle={{fontSize:12}}/>
-          <Recharts.Line type="monotone" dataKey="Shared" stroke="#2d6a4f" strokeWidth={2} dot={false}/>
-          <Recharts.Line type="monotone" dataKey={settings.person1_name} stroke="#1a5276" strokeWidth={1.5} dot={false} strokeDasharray="4 2"/>
-          <Recharts.Line type="monotone" dataKey={settings.person2_name} stroke="#7b241c" strokeWidth={1.5} dot={false} strokeDasharray="4 2"/>
-        </Recharts.LineChart>
-      </Recharts.ResponsiveContainer>
+      {(()=>{
+        const bMin=(byMin!==''&&!isNaN(Number(byMin)))?Number(byMin):null;
+        const bMax=(byMax!==''&&!isNaN(Number(byMax)))?Number(byMax):null;
+        const clamp=(v,mn,mx)=>{if(mx!=null&&v>mx)return mx;if(mn!=null&&v<mn)return mn;return v;};
+        // Filter to only points visible in range, then clamp boundary points
+        let bData=balHistory.map(d=>({
+          ...d,
+          Shared:clamp(d.Shared,bMin,bMax),
+          [settings.person1_name]:clamp(d[settings.person1_name],bMin,bMax),
+          [settings.person2_name]:clamp(d[settings.person2_name],bMin,bMax),
+        }));
+        // Force Recharts to use exact domain by injecting invisible anchor points
+        if(bMin!=null||bMax!=null){
+          const anchor={date:'',Shared:bMin!=null?bMin:(bData[0]?.Shared||0),[settings.person1_name]:bMin!=null?bMin:0,[settings.person2_name]:bMin!=null?bMin:0};
+          const anchor2={date:'',Shared:bMax!=null?bMax:(bData[bData.length-1]?.Shared||0),[settings.person1_name]:bMax!=null?bMax:0,[settings.person2_name]:bMax!=null?bMax:0};
+          bData=[anchor,...bData,anchor2];
+        }
+        const domainMin=bMin!=null?bMin:'auto';
+        const domainMax=bMax!=null?bMax:'auto';
+        return(<Recharts.ResponsiveContainer width="100%" height={220}>
+          <Recharts.LineChart data={bData}>
+            <Recharts.CartesianGrid strokeDasharray="3 3" stroke="var(--border)"/>
+            <Recharts.XAxis dataKey="date" tick={{fontSize:10,fill:'var(--text3)'}} axisLine={false} tickLine={false} interval="preserveStartEnd"/>
+            <Recharts.YAxis tick={{fontSize:10,fill:'var(--text3)'}} axisLine={false} tickLine={false} tickFormatter={v=>`$${v}`} width={65} domain={[domainMin,domainMax]}/>
+            <Recharts.Tooltip content={({active,payload,label})=>{if(!label||!active||!payload?.length)return null;return(<div style={{background:'white',border:'1px solid var(--border)',borderRadius:8,padding:'10px 14px',fontSize:12.5}}><p style={{fontWeight:600,marginBottom:4,fontSize:11.5,color:'var(--text3)'}}>{label}</p>{payload.map((p,i2)=><p key={i2} style={{color:p.stroke,margin:'2px 0'}}>{p.name}: <strong>${(p.value||0).toFixed(2)}</strong></p>)}</div>);}}/>
+            <Recharts.Legend wrapperStyle={{fontSize:12}}/>
+            <Recharts.Line type="monotone" dataKey="Shared" stroke="#2d6a4f" strokeWidth={2} dot={false}/>
+            <Recharts.Line type="monotone" dataKey={settings.person1_name} stroke="#1a5276" strokeWidth={1.5} dot={false} strokeDasharray="4 2"/>
+            <Recharts.Line type="monotone" dataKey={settings.person2_name} stroke="#7b241c" strokeWidth={1.5} dot={false} strokeDasharray="4 2"/>
+          </Recharts.LineChart>
+        </Recharts.ResponsiveContainer>);
+      })()}
     </div>}
 
     {/* Spending by category - table */}
@@ -716,7 +829,7 @@ function Transactions({settings,categories}){
   const hasF=Object.values(cf).some(f=>f&&(f.text||f.dateFrom||f.dateTo||(f.values&&f.values.length)));
 
   const cols=[
-    {key:'date',label:'Desktop Date',sort:true,ct:'date',w:'date'},
+    {key:'date',label:'Statement Date',sort:true,ct:'date',w:'date'},
     {key:'value_date',label:'Mobile Date',sort:true,ct:'date',w:'vd'},
     {key:'merchant',label:'Merchant',sort:true,ct:'values',w:'merchant'},
     {key:'category',label:'Category',sort:true,ct:'values',w:'cat'},
@@ -818,6 +931,10 @@ function ImportPage(){
   const [result,setResult]=useState(null);
   const [err,setErr]=useState('');
   const [toast,setToast]=useState('');
+  // Attach statement dates tool
+  const [attachFile,setAttachFile]=useState(null);
+  const [attachResult,setAttachResult]=useState(null);
+  const [attaching,setAttaching]=useState(false);
 
   const parse=async(f,t)=>{
     setParsing(true);setErr('');setReview(null);setResult(null);
@@ -839,9 +956,21 @@ function ImportPage(){
 
   const pick=(f,t)=>{setFile(f);setType(t);setReview(null);setResult(null);setErr('');};
 
+  const runAttachDates=async()=>{
+    if(!attachFile)return;
+    setAttaching(true);setAttachResult(null);setErr('');
+    const fd=new FormData();fd.append('file',attachFile);
+    try{
+      const r=await authFetch(`${API}/api/import/attach-statement-dates`,{method:'POST',body:fd});
+      const d=await r.json();
+      if(d.detail)setErr(d.detail);else{setAttachResult(d);setToast(`Updated ${d.updated} statement dates`);}
+    }catch{setErr('Attach failed.');}
+    setAttaching(false);
+  };;
+
   return(<div>
     <div className="page-header"><div><h2>Import</h2><p>Bring in data from CommBank or your spreadsheet</p></div></div>
-    {!review&&<div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
+    {!review&&<div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:16}}>
       <div className="card card-padded">
         <div className="sec-title" style={{marginTop:0}}>Import Spreadsheet (.xlsx)</div>
         <ol style={{color:'var(--text2)',fontSize:13,lineHeight:2.2,paddingLeft:16,marginBottom:16}}><li>Use your existing <strong>transactions.xlsx</strong></li><li>Reads Date, Amount, splits, Merchant, Notes, Category</li><li>Existing splits preserved — blanks marked Pending</li><li>You'll review duplicates before confirming</li></ol>
@@ -859,6 +988,20 @@ function ImportPage(){
           <I n="upload" s={26}/><p>{type==='commbank'&&file?file.name:'Click or drag & drop'}</p><small>CommBank CSV export</small>
         </label>
         {type==='commbank'&&file&&!review&&<button className="btn btn-primary" style={{marginTop:12}} onClick={()=>parse(file,'commbank')} disabled={parsing}>{parsing?'Parsing…':'Review Import'}</button>}
+      </div>
+      <div className="card card-padded">
+        <div className="sec-title" style={{marginTop:0}}>Attach Statement Dates</div>
+        <p style={{fontSize:13,color:'var(--text2)',marginBottom:8,lineHeight:1.6}}>Already imported from your spreadsheet? Upload a CommBank CSV to fill in the missing <strong>statement dates</strong> for matched transactions. Nothing is created or deleted — only statement dates are updated.</p>
+        <ol style={{color:'var(--text2)',fontSize:13,lineHeight:2.2,paddingLeft:16,marginBottom:16}}><li>Import your xlsx spreadsheet first</li><li>Export matching date range from CommBank as CSV</li><li>Upload here to match by <strong>amount + merchant + mobile date</strong></li></ol>
+        <label className="upload-area" onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();setAttachFile(e.dataTransfer.files[0]);setAttachResult(null);}}>
+          <input type="file" accept=".csv" style={{display:'none'}} onChange={e=>{setAttachFile(e.target.files[0]);setAttachResult(null);}}/>
+          <I n="upload" s={26}/><p>{attachFile?attachFile.name:'Click or drag & drop'}</p><small>CommBank CSV</small>
+        </label>
+        {attachFile&&<button className="btn btn-primary" style={{marginTop:12}} onClick={runAttachDates} disabled={attaching}>{attaching?'Matching…':'Attach Statement Dates'}</button>}
+        {attachResult&&<div style={{marginTop:10,padding:'8px 12px',background:'var(--accent-light)',borderRadius:'var(--radius-sm)',fontSize:13}}>
+          <strong style={{color:'var(--accent)'}}>✓ Done:</strong> {attachResult.updated} statement dates attached, {attachResult.unmatched} unmatched.
+          {attachResult.unmatched>0&&<div style={{marginTop:4,fontSize:12,color:'var(--text3)'}}>Unmatched rows may have different merchants or amounts — you can handle them manually via Edit on each transaction.</div>}
+        </div>}
       </div>
     </div>}
     {result&&<div style={{marginTop:16,padding:16,background:'var(--accent-light)',borderRadius:'var(--radius)',border:'1px solid #bdddd4'}}><p style={{fontWeight:600,color:'var(--accent)',marginBottom:4}}>✓ Import complete</p><p style={{fontSize:13,color:'var(--text2)'}}>{result.imported} imported, {result.skipped} skipped.</p><button className="btn btn-secondary btn-sm" style={{marginTop:8}} onClick={()=>setResult(null)}>Import another</button></div>}
