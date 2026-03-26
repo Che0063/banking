@@ -569,7 +569,7 @@ function Dashboard({settings}){
       {sum.pending_count>0&&<div className="stat-card"><div className="stat-label">Pending</div><div className="stat-value warn">{sum.pending_count}</div><div className="stat-sub">Need split</div></div>}
     </div>
     {/* Charts */}
-    <div style={{marginBottom:16}}>
+    <div style={{marginBottom:16,maxWidth:700}}>
       <div className="card card-padded">
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8,flexWrap:'wrap',gap:8}}>
           <div className="sec-title" style={{marginTop:0,marginBottom:0}}>Monthly Cash Flow</div>
@@ -627,11 +627,11 @@ function Dashboard({settings}){
           [settings.person1_name]:clamp(d[settings.person1_name],bMin,bMax),
           [settings.person2_name]:clamp(d[settings.person2_name],bMin,bMax),
         }));
-        // Force Recharts to use exact domain by injecting invisible anchor points
+        // Anchor: inject invisible points that are completely null for all series
+        // so Recharts honours the domain without drawing data at the boundary.
         if(bMin!=null||bMax!=null){
-          const anchor={date:'',Shared:bMin!=null?bMin:(bData[0]?.Shared||0),[settings.person1_name]:bMin!=null?bMin:0,[settings.person2_name]:bMin!=null?bMin:0};
-          const anchor2={date:'',Shared:bMax!=null?bMax:(bData[bData.length-1]?.Shared||0),[settings.person1_name]:bMax!=null?bMax:0,[settings.person2_name]:bMax!=null?bMax:0};
-          bData=[anchor,...bData,anchor2];
+          const nullPt=(dateStr)=>({date:dateStr,Shared:null,[settings.person1_name]:null,[settings.person2_name]:null});
+          bData=[nullPt(''),  ...bData, nullPt('')];
         }
         const domainMin=bMin!=null?bMin:'auto';
         const domainMax=bMax!=null?bMax:'auto';
@@ -639,7 +639,7 @@ function Dashboard({settings}){
           <Recharts.LineChart data={bData}>
             <Recharts.CartesianGrid strokeDasharray="3 3" stroke="var(--border)"/>
             <Recharts.XAxis dataKey="date" tick={{fontSize:10,fill:'var(--text3)'}} axisLine={false} tickLine={false} interval="preserveStartEnd"/>
-            <Recharts.YAxis tick={{fontSize:10,fill:'var(--text3)'}} axisLine={false} tickLine={false} tickFormatter={v=>`$${v}`} width={65} domain={[domainMin,domainMax]}/>
+            <Recharts.YAxis tick={{fontSize:10,fill:'var(--text3)'}} axisLine={false} tickLine={false} tickFormatter={v=>`$${v}`} width={65} domain={[bMin!=null?(()=>bMin):'auto',bMax!=null?(()=>bMax):'auto']}/>
             <Recharts.Tooltip content={({active,payload,label})=>{if(!label||!active||!payload?.length)return null;return(<div style={{background:'white',border:'1px solid var(--border)',borderRadius:8,padding:'10px 14px',fontSize:12.5}}><p style={{fontWeight:600,marginBottom:4,fontSize:11.5,color:'var(--text3)'}}>{label}</p>{payload.map((p,i2)=><p key={i2} style={{color:p.stroke,margin:'2px 0'}}>{p.name}: <strong>${(p.value||0).toFixed(2)}</strong></p>)}</div>);}}/>
             <Recharts.Legend wrapperStyle={{fontSize:12}}/>
             <Recharts.Line type="monotone" dataKey="Shared" stroke="#2d6a4f" strokeWidth={2} dot={false}/>
@@ -780,6 +780,7 @@ function Transactions({settings,categories}){
   const [cf,setCf]=useState({});
   const [runBal,setRunBal]=useState({});
   const [ctxMenu,setCtxMenu]=useState(null); // {tx, x, y}
+  const tableRef=React.useRef(null);
   const [txYear,setTxYear]=useState(String(new Date().getFullYear()));
   const [txMonth,setTxMonth]=useState('');
   const [txYears,setTxYears]=useState([]);
@@ -809,6 +810,14 @@ function Transactions({settings,categories}){
       const yrs=Object.keys(d.monthly||{}).map(k=>k.slice(0,4)).filter((v,i,a)=>a.indexOf(v)===i).sort().reverse();
       setTxYears(yrs);
     });
+  },[]);
+  // Suppress browser context menu in capture phase (Firefox fix)
+  useEffect(()=>{
+    const el=tableRef.current;
+    if(!el)return;
+    const suppress=e=>e.preventDefault();
+    el.addEventListener('contextmenu',suppress,true);
+    return()=>el.removeEventListener('contextmenu',suppress,true);
   },[]);
   // Keyboard shortcuts for context menu
   useEffect(()=>{
@@ -928,7 +937,7 @@ function Transactions({settings,categories}){
     </div>}
     <div className="card">
       <div className="table-outer">
-        <table style={{minWidth:900}}>
+        <table ref={tableRef} style={{minWidth:900}}>
           <thead><tr>
             <th style={{width:cw.chk}}><div className="th-inner"><input type="checkbox" checked={txs.length>0&&sel.size===txs.length} onChange={togPage}/></div></th>
             {cols.map(c=><RsTh key={c.key} colKey={c.key} label={c.label} width={cw[c.w]||100} onResize={w=>resize(c.w,w)} sortCol={sc} sortDir={sd} onSort={c.sort?sort:null} colType={c.ct} colFilter={cf[c.key]} onFilter={filter}/>)}
@@ -1125,6 +1134,22 @@ function SettingsPage({settings,onSave,categories,onCategoriesChange}){
   const [sugg,setSugg]=useState([]);const [showSugg,setShowSugg]=useState(false);
   const [preview,setPreview]=useState(null);
   const [toast,setToast]=useState('');
+  const [restoreFile,setRestoreFile]=useState(null);
+  const [restoring,setRestoring]=useState(false);
+  const [restoreMsg,setRestoreMsg]=useState('');
+
+  const doRestore=async()=>{
+    if(!restoreFile||!window.confirm('Restore database from this backup? Current data will be overwritten (a server-side backup is saved automatically).'))return;
+    setRestoring(true);setRestoreMsg('');
+    const fd=new FormData();fd.append('file',restoreFile);
+    try{
+      const r=await authFetch(`${API}/api/restore`,{method:'POST',body:fd});
+      const d=await r.json();
+      if(d.detail)setRestoreMsg('Error: '+d.detail);
+      else{setRestoreMsg('Restore successful. Reload the page to see your data.');setRestoreFile(null);}
+    }catch{setRestoreMsg('Restore failed.');}
+    setRestoring(false);
+  };
 
   useEffect(()=>{
     loadRules();
@@ -1245,6 +1270,24 @@ function SettingsPage({settings,onSave,categories,onCategoriesChange}){
         </div>
         {ruleErr&&<p style={{color:'var(--danger)',fontSize:12.5,marginTop:6}}>{ruleErr}</p>}
         <p className="form-hint" style={{marginTop:8}}>Rules apply top-to-bottom to new/pending transactions. Toggle "On" to disable without deleting. "Preview & apply to pending" only touches transactions without a split.</p>
+      </div>
+    </div>
+    <div className="card card-padded" style={{marginTop:24}}>
+      <div className="sec-title" style={{marginTop:0}}>Backup &amp; Restore</div>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:20}}>
+        <div>
+          <p style={{fontSize:13,color:'var(--text2)',marginBottom:12,lineHeight:1.6}}>Download a full backup of your database. The file can be restored below to recover all transactions, categories, rules and settings.</p>
+          <a href={`${API}/api/backup?token=${sessionStorage.getItem('bk_token')}`} className="btn btn-primary" download style={{textDecoration:'none',display:'inline-flex',alignItems:'center',gap:6}}><I n="download" s={14}/>Download backup (.db)</a>
+        </div>
+        <div>
+          <p style={{fontSize:13,color:'var(--text2)',marginBottom:12,lineHeight:1.6}}>Restore from a previously downloaded <code>.db</code> file. A server-side snapshot of the current database is saved before overwriting.</p>
+          <label className="upload-area" style={{padding:'12px 16px',marginBottom:10}} onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();setRestoreFile(e.dataTransfer.files[0]);setRestoreMsg('');}}>
+            <input type="file" accept=".db" style={{display:'none'}} onChange={e=>{setRestoreFile(e.target.files[0]);setRestoreMsg('');}}/>
+            <I n="upload" s={20}/><p style={{margin:'4px 0 0',fontSize:13}}>{restoreFile?restoreFile.name:'Click or drag backup .db file'}</p>
+          </label>
+          {restoreFile&&<button className="btn btn-danger" onClick={doRestore} disabled={restoring}>{restoring?'Restoring…':'Restore database'}</button>}
+          {restoreMsg&&<p style={{marginTop:8,fontSize:13,color:restoreMsg.startsWith('Error')?'var(--danger)':'var(--accent)',fontWeight:500}}>{restoreMsg}</p>}
+        </div>
       </div>
     </div>
     {preview&&<RulePreviewModal changes={preview} onClose={()=>setPreview(null)} onApply={applySelected}/>}

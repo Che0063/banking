@@ -835,6 +835,67 @@ def export_xlsx(token: str = None, credentials: HTTPAuthorizationCredentials = D
         headers={"Content-Disposition": f"attachment; filename={filename}"}
     )
 
+# ── Backup & Restore ──────────────────────────────────────────────────────────
+@app.get("/api/backup")
+def backup_db(token: str = None, credentials: HTTPAuthorizationCredentials = Depends(security)):
+    """Download a full SQLite backup of the database as a .db file."""
+    if APP_PASSWORD:
+        tok = (credentials.credentials if credentials else None) or token
+        if tok not in _valid_tokens:
+            raise HTTPException(401, "Unauthorized")
+    import shutil, tempfile
+    # Use SQLite backup API for a consistent snapshot
+    src_conn = sqlite3.connect(DB_PATH)
+    tmp = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
+    tmp.close()
+    dst_conn = sqlite3.connect(tmp.name)
+    src_conn.backup(dst_conn)
+    src_conn.close(); dst_conn.close()
+    filename = f"banking_backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.db"
+    def iterfile():
+        with open(tmp.name, "rb") as f:
+            while chunk := f.read(65536):
+                yield chunk
+        import os; os.unlink(tmp.name)
+    return StreamingResponse(
+        iterfile(),
+        media_type="application/octet-stream",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
+
+@app.post("/api/restore", dependencies=[Depends(check_auth)])
+async def restore_db(file: UploadFile = File(...)):
+    """Restore database from an uploaded .db backup file.
+    Creates a timestamped backup of the current DB before overwriting."""
+    import shutil, tempfile, os
+    content = await file.read()
+    # Validate it's a SQLite file
+    if not content.startswith(b"SQLite format 3"):
+        raise HTTPException(400, "Not a valid SQLite database file")
+    # Back up current DB first
+    backup_path = DB_PATH + f".pre_restore_{datetime.now().strftime('%Y%m%d_%H%M%S')}.bak"
+    shutil.copy2(DB_PATH, backup_path)
+    # Write uploaded file to a temp location, verify it opens
+    tmp = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
+    tmp.write(content); tmp.close()
+    try:
+        test = sqlite3.connect(tmp.name)
+        tables = test.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
+        test.close()
+        if not any(t[0] == "transactions" for t in tables):
+            os.unlink(tmp.name)
+            raise HTTPException(400, "Database does not contain a transactions table")
+    except Exception as e:
+        os.unlink(tmp.name)
+        raise HTTPException(400, f"Invalid database: {e}")
+    # Replace live DB with uploaded one
+    shutil.copy2(tmp.name, DB_PATH)
+    os.unlink(tmp.name)
+    # Run migrations on restored DB to ensure schema is current
+    conn = get_db(); conn.close()
+    return {"restored": True, "backup_saved_to": os.path.basename(backup_path)}
+
+
 # ── Import ────────────────────────────────────────────────────────────────────
 def parse_rows_commbank(content_bytes: bytes, conn) -> tuple:
     text = content_bytes.decode("utf-8-sig")
