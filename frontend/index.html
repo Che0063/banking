@@ -219,7 +219,7 @@ function TxModal({tx,onClose,onSave,settings,categories}){
   const p1pct=f.p1pct===''?null:parseFloat(f.p1pct)/100;
   const p2pct=p1pct!=null?1-p1pct:null;
   const save=async()=>{if(!f.merchant.trim()){setErr('Merchant required.');return;}if(!f.amount||isNaN(parseFloat(f.amount))){setErr('Amount required.');return;}setSaving(true);try{await onSave({date:f.date,value_date:f.vd||null,amount:parseFloat(f.amount),merchant:f.merchant.trim(),category:f.category,notes:f.notes.trim()||null,person1_pct:p1pct,is_transfer:f.category==='Transfer',is_starting_balance:f.is_sb});onClose();}catch{setErr('Save failed.');setSaving(false);}};
-  return(<div className="overlay" onClick={e=>e.target===e.currentTarget&&onClose()}><div className="modal"><div className="mhdr"><h3>{isEdit?'Edit Transaction':'Add Transaction'}</h3><button className="btn btn-ghost btn-sm" onClick={onClose}><I n="x"/></button></div><div className="mbody"><div className="form-grid"><div className="form-grid form-2"><div className="form-group"><label className="form-label">Statement Date</label><input type="date" className="form-input" value={f.date} onChange={e=>set('date',e.target.value)}/></div><div className="form-group"><label className="form-label">Mobile Date</label><input type="date" className="form-input" value={f.vd} onChange={e=>set('vd',e.target.value)}/>{!f.vd&&<span className="form-hint">Blank = Pending</span>}</div></div><div className="form-group"><label className="form-label">Amount ($)</label><input type="number" className="form-input" step="0.01" placeholder="-25.00" value={f.amount} onChange={e=>set('amount',e.target.value)}/></div><div className="form-group"><label className="form-label">Merchant</label><input type="text" className="form-input" value={f.merchant} onChange={e=>set('merchant',e.target.value)}/></div><div className="form-grid form-2"><div className="form-group"><label className="form-label">Category</label><select className="form-select" value={f.category} onChange={e=>set('category',e.target.value)}>{categories.map(c=><option key={c}>{c}</option>)}</select></div><div className="form-group"><label className="form-label">Notes</label><input type="text" className="form-input" value={f.notes} onChange={e=>set('notes',e.target.value)}/></div></div><label style={{display:'flex',alignItems:'center',gap:8,fontSize:13,cursor:'pointer'}}><input type="checkbox" checked={f.is_sb} onChange={e=>set('is_sb',e.target.checked)}/>Starting balance entry</label>{f.category!=='Transfer'&&!f.is_sb&&<div className="form-group"><label className="form-label">Split</label><div style={{display:'flex',gap:8,marginBottom:6}}><label style={{display:'flex',alignItems:'center',gap:5,padding:'4px 10px',border:'1px solid var(--border)',borderRadius:'var(--radius-sm)',cursor:'pointer',fontSize:12.5,background:f.p1pct==='0'?'var(--accent-light)':'',borderColor:f.p1pct==='0'?'var(--accent)':''}}><input type="checkbox" checked={f.p1pct==='0'} onChange={()=>set('p1pct',f.p1pct==='0'?'':'0')} style={{accentColor:'var(--accent)'}}/><span>100% {settings.person2_name}</span></label><label style={{display:'flex',alignItems:'center',gap:5,padding:'4px 10px',border:'1px solid var(--border)',borderRadius:'var(--radius-sm)',cursor:'pointer',fontSize:12.5,background:f.p1pct==='100'?'#eef2ff':'',borderColor:f.p1pct==='100'?'#6366f1':''}}><input type="checkbox" checked={f.p1pct==='100'} onChange={()=>set('p1pct',f.p1pct==='100'?'':'100')} style={{accentColor:'#6366f1'}}/><span>100% {settings.person1_name}</span></label><label style={{display:'flex',alignItems:'center',gap:5,padding:'4px 10px',border:'1px solid var(--border)',borderRadius:'var(--radius-sm)',cursor:'pointer',fontSize:12.5,background:p1pct===0.5?'#f0fdf4':'',borderColor:p1pct===0.5?'#16a34a':''}}><input type="checkbox" checked={p1pct===0.5} onChange={()=>set('p1pct',p1pct===0.5?'':'50')} style={{accentColor:'#16a34a'}}/><span>50/50</span></label></div><SplitInput label={settings.person1_name} pct={p1pct} onPctChange={v=>set('p1pct',v)} amount={amount}/><SplitInput label={settings.person2_name} pct={p2pct} readonly amount={amount}/>{f.p1pct===''&&<p style={{fontSize:12,color:'var(--warn)',marginTop:4}}>No split entered → Pending</p>}</div>}{err&&<p style={{color:'var(--danger)',fontSize:13}}>{err}</p>}</div></div><div className="mfoot"><button className="btn btn-secondary" onClick={onClose}>Cancel</button><button className="btn btn-primary" onClick={save} disabled={saving}>{saving?'Saving…':isEdit?'Save Changes':'Add'}</button></div></div></div>);
+  return(<div className="overlay" onClick={e=>e.target===e.currentTarget&&onClose()}><div className="modal"><div className="mhdr"><h3>{isEdit?'Edit Transaction':'Add Transaction'}</h3><button className="btn btn-ghost btn-sm" onClick={onClose}><I n="x"/></button></div><div className="mbody"><div className="form-grid"><div className="form-grid form-2"><div className="form-group"><label className="form-label">Statement Date</label><input type="date" className="form-input" value={f.date} onChange={e=>set('date',e.target.value)}/></div><div className="form-group"><label className="form-label">Mobile Date</label><input type="date" className="form-input" value={f.vd} onChange={e=>set('vd',e.target.value)}/>{!f.vd&&<span className="form-hint">Blank = Pending</span>}</div></div><div className="form-group"><label className="form-label">Amount ($)</label><input type="number" className="form-input" step="0.01" placeholder="-25.00" value={f.amount} onChange={e=>set('amount',e.target.value)}/></div><div className="form-group"><label className="form-label">Merchant</label><input type="text" className="form-input" value={f.merchant} onChange={e=>set('merchant',e.target.value)}/></div><div className="form-grid form-2"><div className="form-group"><label className="form-label">Category</label><select className="form-select" value={f.category} onChange={e=>set('category',e.target.value)}>{categories.map(c=><option key={c}>{c}</option>)}</select></div><div className="form-group"><label className="form-label">Notes</label><input type="text" className="form-input" value={f.notes} onChange={e=>set('notes',e.target.value)}/></div></div>{f.category!=='Transfer'&&<div className="form-group"><label className="form-label">Split</label><div style={{display:'flex',gap:8,marginBottom:6}}><label style={{display:'flex',alignItems:'center',gap:5,padding:'4px 10px',border:'1px solid var(--border)',borderRadius:'var(--radius-sm)',cursor:'pointer',fontSize:12.5,background:f.p1pct==='0'?'var(--accent-light)':'',borderColor:f.p1pct==='0'?'var(--accent)':''}}><input type="checkbox" checked={f.p1pct==='0'} onChange={()=>set('p1pct',f.p1pct==='0'?'':'0')} style={{accentColor:'var(--accent)'}}/><span>100% {settings.person2_name}</span></label><label style={{display:'flex',alignItems:'center',gap:5,padding:'4px 10px',border:'1px solid var(--border)',borderRadius:'var(--radius-sm)',cursor:'pointer',fontSize:12.5,background:f.p1pct==='100'?'#eef2ff':'',borderColor:f.p1pct==='100'?'#6366f1':''}}><input type="checkbox" checked={f.p1pct==='100'} onChange={()=>set('p1pct',f.p1pct==='100'?'':'100')} style={{accentColor:'#6366f1'}}/><span>100% {settings.person1_name}</span></label><label style={{display:'flex',alignItems:'center',gap:5,padding:'4px 10px',border:'1px solid var(--border)',borderRadius:'var(--radius-sm)',cursor:'pointer',fontSize:12.5,background:p1pct===0.5?'#f0fdf4':'',borderColor:p1pct===0.5?'#16a34a':''}}><input type="checkbox" checked={p1pct===0.5} onChange={()=>set('p1pct',p1pct===0.5?'':'50')} style={{accentColor:'#16a34a'}}/><span>50/50</span></label></div><SplitInput label={settings.person1_name} pct={p1pct} onPctChange={v=>set('p1pct',v)} amount={amount}/><SplitInput label={settings.person2_name} pct={p2pct} readonly amount={amount}/>{f.p1pct===''&&<p style={{fontSize:12,color:'var(--warn)',marginTop:4}}>No split entered → Pending</p>}</div>}{err&&<p style={{color:'var(--danger)',fontSize:13}}>{err}</p>}</div></div><div className="mfoot"><button className="btn btn-secondary" onClick={onClose}>Cancel</button><button className="btn btn-primary" onClick={save} disabled={saving}>{saving?'Saving…':isEdit?'Save Changes':'Add'}</button></div></div></div>);
 }
 
 // ── Bulk Edit Modal ───────────────────────────────────────────────────────────
@@ -506,6 +506,7 @@ function Dashboard({settings}){
   const [sum,setSum]=useState(null);
   const curYear=String(new Date().getFullYear());
   const [fy,setFy]=useState(curYear);const [fm,setFm]=useState('');const [fc,setFc]=useState('');
+  const [totalBal,setTotalBal]=useState(null); // unfiltered balance always shown
   const [cats,setCats]=useState([]);
   const [chartView,setChartView]=useState('combined');
   const [balHistory,setBalHistory]=useState([]);
@@ -513,6 +514,10 @@ function Dashboard({settings}){
   const [byMin,setByMin]=useState('');const [byMax,setByMax]=useState('');
 
   useEffect(()=>{authFetch(`${API}/api/categories`).then(r=>r.json()).then(setCats);},[]);
+  // Always-current unfiltered balance
+  useEffect(()=>{
+    authFetch(`${API}/api/summary`).then(r=>r.json()).then(setTotalBal);
+  },[]);
   useEffect(()=>{
     let url=`${API}/api/summary`;const p=new URLSearchParams();
     if(fy)p.set('year',fy);if(fm)p.set('month',fm);if(fc)p.set('category',fc);
@@ -558,7 +563,7 @@ function Dashboard({settings}){
     </div>
     {sum.pending_count>0&&<div className="pending-banner"><I n="warn" s={16}/><span>{sum.pending_count} transaction{sum.pending_count!==1?'s':''} pending split</span></div>}
     <div className="stat-grid">
-      <div className="stat-card"><div className="stat-label">Shared Balance</div><div className={`stat-value ${sum.shared_balance>=0?'positive':'negative'}`}>{fmt(sum.shared_balance)}</div><div className="stat-sub">Incl. starting balance</div></div>
+      <div className="stat-card"><div className="stat-label">Shared Balance</div><div className={`stat-value ${(totalBal?.shared_balance||0)>=0?'positive':'negative'}`}>{totalBal?fmt(totalBal.shared_balance):'…'}</div><div className="stat-sub" style={{fontSize:10.5}}>All-time · real balance</div></div>
       <div className="stat-card"><div className="stat-label">{settings.person1_name}</div><div className={`stat-value ${sum.person1_balance>=0?'positive':'negative'}`}>{fmt(sum.person1_balance)}</div><div className="stat-sub">Cumulative share</div></div>
       <div className="stat-card"><div className="stat-label">{settings.person2_name}</div><div className={`stat-value ${sum.person2_balance>=0?'positive':'negative'}`}>{fmt(sum.person2_balance)}</div><div className="stat-sub">Cumulative share</div></div>
       {sum.pending_count>0&&<div className="stat-card"><div className="stat-label">Pending</div><div className="stat-value warn">{sum.pending_count}</div><div className="stat-sub">Need split</div></div>}
@@ -774,10 +779,20 @@ function Transactions({settings,categories}){
   const [cw,setCw]=useState(DW);
   const [cf,setCf]=useState({});
   const [runBal,setRunBal]=useState({});
+  const [ctxMenu,setCtxMenu]=useState(null); // {tx, x, y}
+  const [txYear,setTxYear]=useState(String(new Date().getFullYear()));
+  const [txMonth,setTxMonth]=useState('');
+  const [txYears,setTxYears]=useState([]);
+  const [groupBy,setGroupBy]=useState('none'); // 'none'|'month'|'year'
 
   const buildUrl=useCallback((ov={})=>{
-    const o={page,pageSize,search,sc,sd,cf,...ov};
+    const o={page,pageSize,search,sc,sd,cf,txYear,txMonth,...ov};
     let u=`${API}/api/transactions?limit=${o.pageSize}&offset=${o.page*o.pageSize}&sort_col=${o.sc}&sort_dir=${o.sd}`;
+    if(o.txYear)u+=`&date_from=${o.txYear}-01-01&date_to=${o.txYear}-12-31`;
+    if(o.txMonth&&o.txYear){
+      const lastDay=new Date(Number(o.txYear),Number(o.txMonth),0).getDate();
+      u+=`&date_from=${o.txYear}-${String(o.txMonth).padStart(2,'0')}-01&date_to=${o.txYear}-${String(o.txMonth).padStart(2,'0')}-${lastDay}`;
+    }
     if(o.search)u+=`&search=${encodeURIComponent(o.search)}`;
     const f=o.cf;
     if(f.date?.dateFrom)u+=`&date_from=${f.date.dateFrom}`;
@@ -787,8 +802,35 @@ function Transactions({settings,categories}){
     if(f.merchant?.text&&!f.merchant?.values?.length)u+=`&search=${encodeURIComponent(f.merchant.text)}`;
     if(f.notes?.text)u+=`&search=${encodeURIComponent(f.notes.text)}`;
     return u;
-  },[page,pageSize,search,sc,sd,cf]);
+  },[page,pageSize,search,sc,sd,cf,txYear,txMonth]);
 
+  useEffect(()=>{
+    authFetch(`${API}/api/summary`).then(r=>r.json()).then(d=>{
+      const yrs=Object.keys(d.monthly||{}).map(k=>k.slice(0,4)).filter((v,i,a)=>a.indexOf(v)===i).sort().reverse();
+      setTxYears(yrs);
+    });
+  },[]);
+  // Keyboard shortcuts for context menu
+  useEffect(()=>{
+    const onKey=e=>{
+      if(!ctxMenu)return;
+      const {tx}=ctxMenu;
+      const p1n=settings.person1_name[0].toLowerCase();
+      const p2n=settings.person2_name[0].toLowerCase();
+      if(e.key===p2n||e.key==='n'){quickAssign(tx,'0');setCtxMenu(null);}
+      else if(e.key===p1n||e.key==='a'){quickAssign(tx,'100');setCtxMenu(null);}
+      else if(e.key==='s'||e.key==='5'){quickAssign(tx,'50');setCtxMenu(null);}
+      else if(e.key==='Escape'){setCtxMenu(null);}
+    };
+    window.addEventListener('keydown',onKey);
+    return()=>window.removeEventListener('keydown',onKey);
+  },[ctxMenu]);
+  const quickAssign=async(tx,p1pctStr)=>{
+    const p1=parseFloat(p1pctStr)/100;
+    const p2=1-p1;
+    await authFetch(`${API}/api/transactions/${tx.id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({...tx,person1_pct:p1,person2_pct:p2,value_date:tx.value_date||null})});
+    load();
+  };
   const load=useCallback(()=>{
     authFetch(buildUrl()).then(r=>r.json()).then(d=>{setData(d);setSel(new Set());setSelAll(false);});
     authFetch(`${API}/api/transactions/running-balance`).then(r=>r.json()).then(d=>{const m={};if(Array.isArray(d))d.forEach(r=>{m[r.id]=r;});setRunBal(m);});
@@ -855,6 +897,19 @@ function Transactions({settings,categories}){
     </div>
     <div className="search-bar">
       <div className="search-wrap"><I n="search" s={14}/><input className="search-input" placeholder="Search…" value={search} onChange={e=>{setSearch(e.target.value);setPage(0);}}/></div>
+      <select className="fsel" value={txYear} onChange={e=>{setTxYear(e.target.value);setTxMonth('');setPage(0);}} style={{fontWeight:500}}>
+        <option value="">All time</option>
+        {txYears.map(y=><option key={y} value={y}>{y}</option>)}
+      </select>
+      <select className="fsel" value={txMonth} onChange={e=>{setTxMonth(e.target.value);setPage(0);}} disabled={!txYear}>
+        <option value="">All months</option>
+        {['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'].map((m,i)=><option key={i+1} value={i+1}>{m}</option>)}
+      </select>
+      <select className="fsel" value={groupBy} onChange={e=>setGroupBy(e.target.value)} title="Group rows by">
+        <option value="none">No grouping</option>
+        <option value="month">Group by month</option>
+        <option value="year">Group by year</option>
+      </select>
       <div style={{marginLeft:'auto',display:'flex',alignItems:'center',gap:8}}>
         <span style={{fontSize:13,color:'var(--text3)'}}>Per page:</span>
         <select className="fsel" value={pageSize} onChange={e=>{setPageSize(Number(e.target.value));setPage(0);}}>
@@ -881,8 +936,24 @@ function Transactions({settings,categories}){
           </tr></thead>
           <tbody>
             {txs.length===0&&<tr><td colSpan={11}><div className="empty-state"><I n="list" s={32}/><p>No transactions found</p></div></td></tr>}
-            {txs.map(tx=>(
-              <tr key={tx.id} className={sel.has(tx.id)?'sel':''} style={{cursor:'pointer'}} onClick={e=>{if(e.target.tagName==='INPUT'||e.target.closest('button'))return;setModal({type:'edit',tx});}}>
+            {(()=>{
+              const getGroupKey=tx=>{
+                const d=tx.value_date||tx.date||'';
+                if(groupBy==='month')return d.slice(0,7); // YYYY-MM
+                if(groupBy==='year')return d.slice(0,4);
+                return null;
+              };
+              const rows=[];let lastKey=null;
+              txs.forEach(tx=>{
+                const key=getGroupKey(tx);
+                if(key&&key!==lastKey){
+                  const [yr,mo]=key.split('-');
+                  const months=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+                  const label=groupBy==='month'?`${months[parseInt(mo)-1]} ${yr}`:yr;
+                  rows.push(<tr key={`grp-${key}`}><td colSpan={12} style={{padding:'6px 12px',background:'var(--surface2)',fontWeight:600,fontSize:12,color:'var(--text2)',borderTop:'2px solid var(--border)',letterSpacing:'.2px'}}>{label}</td></tr>);
+                  lastKey=key;
+                }
+                rows.push(<tr key={tx.id} className={sel.has(tx.id)?'sel':''} style={{cursor:'pointer'}} onClick={e=>{if(e.target.tagName==='INPUT'||e.target.closest('button'))return;setModal({type:'edit',tx});}} onContextMenu={e=>{e.preventDefault();setCtxMenu({tx,x:e.clientX,y:e.clientY});}}>
                 <td style={{width:cw.chk}}><input type="checkbox" checked={sel.has(tx.id)} onChange={()=>togSel(tx.id)}/></td>
                 <td style={{width:cw.date}} className="mono">{fmtDate(tx.date)}</td>
                 <td style={{width:cw.vd}} className="mono">{tx.value_date?fmtDate(tx.value_date):<span className="badge badge-pending">Pending</span>}</td>
@@ -899,7 +970,11 @@ function Transactions({settings,categories}){
                   <button className="btn btn-ghost btn-sm" style={{color:'var(--danger)'}} onClick={()=>setModal({type:'del',tx})}><I n="trash" s={13}/></button>
                 </div></td>
               </tr>
-            ))}
+            );
+              });
+              return rows;
+            })()
+            }
           </tbody>
         </table>
       </div>
@@ -915,6 +990,26 @@ function Transactions({settings,categories}){
       </div>
     </div>
     {(modal?.type==='add'||modal?.type==='edit')&&<TxModal tx={modal.tx} onClose={()=>setModal(null)} onSave={save} settings={settings} categories={categories}/>}
+    {ctxMenu&&<>
+      <div style={{position:'fixed',inset:0,zIndex:999}} onClick={()=>setCtxMenu(null)}/>
+      <div style={{position:'fixed',left:ctxMenu.x,top:ctxMenu.y,zIndex:1000,background:'white',border:'1px solid var(--border)',borderRadius:'var(--radius-sm)',boxShadow:'0 4px 16px rgba(0,0,0,.12)',minWidth:200,padding:'4px 0',fontSize:13}}>
+        <div style={{padding:'6px 12px 4px',fontSize:11,color:'var(--text3)',fontWeight:600,textTransform:'uppercase',letterSpacing:'.4px'}}>{ctxMenu.tx.merchant?.slice(0,28)}</div>
+        <div style={{height:1,background:'var(--border)',margin:'2px 0'}}/>
+        <button onClick={()=>{quickAssign(ctxMenu.tx,'0');setCtxMenu(null);}} style={{display:'flex',alignItems:'center',justifyContent:'space-between',width:'100%',padding:'8px 14px',border:'none',background:'none',cursor:'pointer',textAlign:'left',fontSize:13}} onMouseEnter={e=>e.currentTarget.style.background='var(--surface2)'} onMouseLeave={e=>e.currentTarget.style.background='none'}>
+          <span>100% {settings.person2_name}</span><kbd style={{fontSize:10,padding:'1px 5px',border:'1px solid var(--border)',borderRadius:3,color:'var(--text3)'}}>{settings.person2_name[0].toUpperCase()}</kbd>
+        </button>
+        <button onClick={()=>{quickAssign(ctxMenu.tx,'100');setCtxMenu(null);}} style={{display:'flex',alignItems:'center',justifyContent:'space-between',width:'100%',padding:'8px 14px',border:'none',background:'none',cursor:'pointer',textAlign:'left',fontSize:13}} onMouseEnter={e=>e.currentTarget.style.background='var(--surface2)'} onMouseLeave={e=>e.currentTarget.style.background='none'}>
+          <span>100% {settings.person1_name}</span><kbd style={{fontSize:10,padding:'1px 5px',border:'1px solid var(--border)',borderRadius:3,color:'var(--text3)'}}>{settings.person1_name[0].toUpperCase()}</kbd>
+        </button>
+        <button onClick={()=>{quickAssign(ctxMenu.tx,'50');setCtxMenu(null);}} style={{display:'flex',alignItems:'center',justifyContent:'space-between',width:'100%',padding:'8px 14px',border:'none',background:'none',cursor:'pointer',textAlign:'left',fontSize:13}} onMouseEnter={e=>e.currentTarget.style.background='var(--surface2)'} onMouseLeave={e=>e.currentTarget.style.background='none'}>
+          <span>50 / 50</span><kbd style={{fontSize:10,padding:'1px 5px',border:'1px solid var(--border)',borderRadius:3,color:'var(--text3)'}}>S</kbd>
+        </button>
+        <div style={{height:1,background:'var(--border)',margin:'2px 0'}}/>
+        <button onClick={()=>{setModal({type:'edit',tx:ctxMenu.tx});setCtxMenu(null);}} style={{display:'flex',alignItems:'center',gap:8,width:'100%',padding:'8px 14px',border:'none',background:'none',cursor:'pointer',textAlign:'left',fontSize:13,color:'var(--text2)'}} onMouseEnter={e=>e.currentTarget.style.background='var(--surface2)'} onMouseLeave={e=>e.currentTarget.style.background='none'}>
+          <I n="edit" s={12}/> Edit…
+        </button>
+      </div>
+    </>}
     {modal?.type==='del'&&<div className="overlay" onClick={e=>e.target===e.currentTarget&&setModal(null)}><div className="modal" style={{maxWidth:420}}><div className="mhdr"><h3>Delete Transaction</h3><button className="btn btn-ghost btn-sm" onClick={()=>setModal(null)}><I n="x"/></button></div><div className="mbody"><p style={{fontSize:14,color:'var(--text2)',marginBottom:8}}>Delete <strong>{modal.tx.merchant}</strong> ({fmtAbs(modal.tx.amount)} on {fmtDate(modal.tx.date)})?</p><p style={{fontSize:13,color:'var(--danger)',fontWeight:500}}>This action cannot be undone.</p></div><div className="mfoot"><button className="btn btn-secondary" onClick={()=>setModal(null)}>Cancel</button><button className="btn btn-danger" onClick={del}>Delete permanently</button></div></div></div>}
     {modal?.type==='bulkdel'&&<div className="overlay" onClick={e=>e.target===e.currentTarget&&setModal(null)}><div className="modal" style={{maxWidth:420}}><div className="mhdr"><h3>Delete {selCount} Transactions</h3><button className="btn btn-ghost btn-sm" onClick={()=>setModal(null)}><I n="x"/></button></div><div className="mbody"><p style={{fontSize:14,color:'var(--text2)',marginBottom:8}}>Delete <strong>{selCount} selected transactions</strong>?</p><p style={{fontSize:13,color:'var(--danger)',fontWeight:500}}>This action cannot be undone.</p></div><div className="mfoot"><button className="btn btn-secondary" onClick={()=>setModal(null)}>Cancel</button><button className="btn btn-danger" onClick={bulkDel}>Delete {selCount} permanently</button></div></div></div>}
     {modal?.type==='bulkedit'&&<BulkEditModal count={selCount} categories={categories} settings={settings} onClose={()=>setModal(null)} onSave={bulkEdit}/>}
