@@ -788,24 +788,38 @@ def export_xlsx(token: str = None, credentials: HTTPAuthorizationCredentials = D
     p1_bal = p1_start; p2_bal = p2_start
     alt_fill = PatternFill("solid", fgColor="F7F6F3")
 
+    # Number formats
+    fmt_date   = "DD/MM/YYYY"
+    fmt_dollar = '_($* #,##0.00_);_($* (#,##0.00);_($* "-"??_);_(@_)'  # accounting $
+    fmt_pct    = '0.00%'   # stores 0-1 fraction, displays as e.g. 50.00%
+
     for ri, r in enumerate(rows, 2):
         amt = r["amount"]
         p1, p2 = r["person1_pct"], r["person2_pct"]
-        p1_pct_disp = round(p1 * 100, 1) if p1 is not None else None
-        p2_pct_disp = round(p2 * 100, 1) if p2 is not None else None
+        # Keep percentages as 0-1 fractions — Excel % format multiplies by 100 for display
+        p1_pct_val = p1 if p1 is not None else None
+        p2_pct_val = p2 if p2 is not None else None
         p1_amt = round(p1 * amt, 2) if p1 is not None else None
         p2_amt = round(p2 * amt, 2) if p2 is not None else None
         shared_bal += amt
         if p1 is not None:
             p1_bal += p1_amt; p2_bal += p2_amt
 
-        export_date = r["value_date"] or r["date"]
+        # Date: convert YYYY-MM-DD string to Python date object so Excel stores as real date
+        raw_date = r["value_date"] or r["date"]
+        try:
+            from datetime import date as _date
+            y, m, d = raw_date.split("-")
+            export_date = _date(int(y), int(m), int(d))
+        except Exception:
+            export_date = raw_date  # fallback to string if malformed
+
         row_data = [
             export_date, amt,
-            p1_pct_disp, p2_pct_disp,
+            p1_pct_val, p2_pct_val,
             p1_amt, p2_amt,
             r["merchant"], r["notes"], r["category"],
-            round(shared_bal,2), round(p1_bal,2), round(p2_bal,2)
+            round(shared_bal, 2), round(p1_bal, 2), round(p2_bal, 2)
         ]
         fill = alt_fill if ri % 2 == 0 else None
         for ci, val in enumerate(row_data, 1):
@@ -813,15 +827,19 @@ def export_xlsx(token: str = None, credentials: HTTPAuthorizationCredentials = D
             cell.border = border
             if fill: cell.fill = fill
             cell.font = Font(name="Calibri", size=10)
-            # Format numbers
-            if ci == 2: cell.number_format = '#,##0.00'
-            if ci in (3,4): cell.number_format = '0.0'
-            if ci in (5,6,10,11,12): cell.number_format = '#,##0.00'
-            if ci in (5,6,2) and val is not None:
+            # Column 1: Date → DD/MM/YYYY format
+            if ci == 1:
+                cell.number_format = fmt_date
+            # Columns 2, 5, 6, 10, 11, 12: dollar amounts
+            if ci in (2, 5, 6, 10, 11, 12):
+                cell.number_format = fmt_dollar
                 cell.alignment = Alignment(horizontal="right")
+            # Columns 3, 4: percentages stored as 0-1, displayed as %
+            if ci in (3, 4):
+                cell.number_format = fmt_pct
 
     # Column widths
-    col_widths = [12,14,10,10,12,12,30,30,14,14,16,16]
+    col_widths = [13, 16, 11, 11, 14, 14, 30, 30, 14, 16, 16, 16]
     for i, w in enumerate(col_widths, 1):
         ws.column_dimensions[get_column_letter(i)].width = w
 
