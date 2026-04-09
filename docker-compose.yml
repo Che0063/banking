@@ -4,7 +4,7 @@ services:
     container_name: banking-backend
     restart: unless-stopped
     volumes:
-      - banking-data:/data
+      - /home/anthony/banking/banking-data:/data
     environment:
       # Set your password here. Leave blank to disable password protection.
       - APP_PASSWORD=changeme
@@ -21,9 +21,6 @@ services:
       - backend
     networks:
       - banking
-
-volumes:
-  banking-data:
 
 networks:
   banking:
