@@ -113,11 +113,9 @@ def init_db():
 init_db()
 
 # ── Auth ──────────────────────────────────────────────────────────────────────
-def check_auth(credentials: HTTPAuthorizationCredentials = Depends(security), token: str = None):
+def check_auth(credentials: HTTPAuthorizationCredentials = Depends(security)):
     if not APP_PASSWORD: return True
-    # Accept token as query param for file downloads (browsers can't set headers for GET)
-    tok = (credentials.credentials if credentials else None) or token
-    if tok not in _valid_tokens:
+    if not credentials or credentials.credentials not in _valid_tokens:
         raise HTTPException(401, "Unauthorized")
     return True
 
@@ -187,7 +185,7 @@ def guess_category(desc: str, conn=None) -> str:
 
 def row_to_tx(row) -> dict:
     p1, p2, amt = row["person1_pct"], row["person2_pct"], row["amount"]
-    pending = (p1 is None) and not row["is_transfer"] and not row["is_starting_balance"]
+    pending = (p1 is None) and not row["is_starting_balance"]
     return {
         "id": row["id"], "date": row["date"], "value_date": row["value_date"],
         "amount": amt, "merchant": row["merchant"], "category": row["category"],
@@ -413,23 +411,35 @@ def bulk_edit(body: BulkEditIn):
 @app.delete("/api/transactions/{tx_id}", dependencies=[Depends(check_auth)])
 def delete_transaction(tx_id: int):
     conn = get_db()
-    conn.execute("DELETE FROM transactions WHERE id=?", (tx_id,))
+    cur = conn.execute("DELETE FROM transactions WHERE id=?", (tx_id,))
+    if cur.rowcount == 0:
+        conn.close()
+        raise HTTPException(404, "Not found")
     conn.commit(); conn.close()
     return {"ok": True}
 
 # ── Summary ───────────────────────────────────────────────────────────────────
 
 @app.get("/api/transactions/running-balance", dependencies=[Depends(check_auth)])
-def running_balance():
+def running_balance(year: int = None, month: int = None):
     """Return all transactions with running shared/p1/p2 balances, chronological."""
     conn = get_db()
     s = {r["key"]: r["value"] for r in conn.execute("SELECT key,value FROM settings").fetchall()}
     p1_start = float(s.get("person1_starting_balance", 0))
     p2_start = float(s.get("person2_starting_balance", 0))
-    rows = conn.execute(
+    q = (
         "SELECT id,date,amount,merchant,category,person1_pct,person2_pct,is_transfer,is_starting_balance "
-        "FROM transactions WHERE is_starting_balance=0 ORDER BY date ASC, id ASC"
-    ).fetchall()
+        "FROM transactions WHERE is_starting_balance=0"
+    )
+    params = []
+    if year:
+        q += " AND strftime('%Y',date)=?"
+        params.append(str(year))
+    if month:
+        q += " AND strftime('%m',date)=?"
+        params.append(f"{month:02d}")
+    q += " ORDER BY date ASC, id ASC"
+    rows = conn.execute(q, params).fetchall()
     conn.close()
     shared_bal = p1_start + p2_start
     p1_bal = p1_start
@@ -476,7 +486,7 @@ def get_summary(year: int = None, month: int = None, category: str = None):
     for r in rows:
         amt = r["amount"]; shared_bal += amt
         p1, p2 = r["person1_pct"], r["person2_pct"]
-        if p1 is None and not r["is_transfer"]: pending_count += 1
+        if p1 is None: pending_count += 1
         elif p1 is not None:
             p1_bal += round(p1 * amt, 2); p2_bal += round(p2 * amt, 2)
         cat = r["category"]
@@ -581,7 +591,7 @@ def preview_rule_apply(body: dict = {}):
     conn = get_db()
     if scope == "pending":
         rows = conn.execute(
-            "SELECT id,merchant,category,date FROM transactions WHERE person1_pct IS NULL AND is_transfer=0 AND is_starting_balance=0"
+            "SELECT id,merchant,category,date FROM transactions WHERE person1_pct IS NULL AND is_starting_balance=0"
         ).fetchall()
     else:
         rows = conn.execute("SELECT id,merchant,category,date FROM transactions").fetchall()
@@ -736,12 +746,8 @@ def update_settings(body: dict):
     conn.commit(); conn.close(); return {"ok": True}
 
 # ── Export ────────────────────────────────────────────────────────────────────
-@app.get("/api/export/xlsx")
-def export_xlsx(token: str = None, credentials: HTTPAuthorizationCredentials = Depends(security)):
-    if APP_PASSWORD:
-        tok = (credentials.credentials if credentials else None) or token
-        if tok not in _valid_tokens:
-            raise HTTPException(401, "Unauthorized")
+@app.get("/api/export/xlsx", dependencies=[Depends(check_auth)])
+def export_xlsx():
     try:
         import openpyxl
         from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
@@ -854,13 +860,9 @@ def export_xlsx(token: str = None, credentials: HTTPAuthorizationCredentials = D
     )
 
 # ── Backup & Restore ──────────────────────────────────────────────────────────
-@app.get("/api/backup")
-def backup_db(token: str = None, credentials: HTTPAuthorizationCredentials = Depends(security)):
+@app.get("/api/backup", dependencies=[Depends(check_auth)])
+def backup_db():
     """Download a full SQLite backup of the database as a .db file."""
-    if APP_PASSWORD:
-        tok = (credentials.credentials if credentials else None) or token
-        if tok not in _valid_tokens:
-            raise HTTPException(401, "Unauthorized")
     import shutil, tempfile
     # Use SQLite backup API for a consistent snapshot
     src_conn = sqlite3.connect(DB_PATH)
@@ -910,7 +912,7 @@ async def restore_db(file: UploadFile = File(...)):
     shutil.copy2(tmp.name, DB_PATH)
     os.unlink(tmp.name)
     # Run migrations on restored DB to ensure schema is current
-    conn = get_db(); conn.close()
+    init_db()
     return {"restored": True, "backup_saved_to": os.path.basename(backup_path)}
 
 
@@ -964,7 +966,14 @@ def parse_rows_xlsx(content_bytes: bytes, conn) -> tuple:
             if raw_amount is None or isinstance(raw_amount, str): skipped += 1; continue
             amount = float(raw_amount)
             p1_raw = row[2]
-            p1_pct = float(p1_raw) if isinstance(p1_raw, (int, float)) else None
+            if isinstance(p1_raw, (int, float)):
+                p1_pct = float(p1_raw)
+            elif isinstance(p1_raw, str) and p1_raw.strip():
+                pct_text = p1_raw.strip().replace("%", "")
+                parsed_pct = float(pct_text)
+                p1_pct = parsed_pct / 100 if parsed_pct > 1 else parsed_pct
+            else:
+                p1_pct = None
             p2_pct = round(1 - p1_pct, 6) if p1_pct is not None else None
             merchant = str(row[6]).strip() if row[6] else "Unknown"
             if merchant in ("None","Unknown",""): skipped += 1; continue
@@ -1025,12 +1034,12 @@ def confirm_import(body: ImportConfirmIn):
     for row in body.rows:
         action = row.get("action","import")
         if action == "skip": skipped += 1; continue
-        # Replace: update existing transaction's value_date (pending -> finalised fix)
+        # Replace: attach incoming statement/mobile dates to an existing duplicate.
         if action == "replace":
             dup = row.get("duplicate_of")
             if dup and dup.get("id"):
-                conn.execute("UPDATE transactions SET value_date=? WHERE id=?",
-                             (row.get("value_date") or None, dup["id"]))
+                conn.execute("UPDATE transactions SET date=?, value_date=? WHERE id=?",
+                             (row.get("date"), row.get("value_date") or None, dup["id"]))
                 replaced += 1
             continue
         try:
@@ -1058,6 +1067,47 @@ def list_import_sessions():
     rows = conn.execute("SELECT * FROM import_sessions ORDER BY id DESC LIMIT 20").fetchall()
     conn.close()
     return [dict(r) for r in rows]
+
+@app.get("/api/import/sessions/{session_id}/transactions", dependencies=[Depends(check_auth)])
+def import_session_transactions(session_id: int):
+    conn = get_db()
+    rows = conn.execute(
+        """
+        SELECT t.* FROM transactions t
+        JOIN import_session_ids isi ON isi.transaction_id=t.id
+        WHERE isi.session_id=?
+        ORDER BY COALESCE(t.value_date,t.date) ASC, t.id ASC
+        """,
+        (session_id,),
+    ).fetchall()
+    exists = conn.execute("SELECT 1 FROM import_sessions WHERE id=?", (session_id,)).fetchone()
+    conn.close()
+    if not exists:
+        raise HTTPException(404, "Import session not found")
+    return [row_to_tx(r) for r in rows]
+
+@app.delete("/api/import/sessions/{session_id}/transactions/{tx_id}", dependencies=[Depends(check_auth)])
+def remove_import_session_transaction(session_id: int, tx_id: int):
+    conn = get_db()
+    linked = conn.execute(
+        "SELECT 1 FROM import_session_ids WHERE session_id=? AND transaction_id=?",
+        (session_id, tx_id),
+    ).fetchone()
+    if not linked:
+        conn.close()
+        raise HTTPException(404, "Transaction not found in import session")
+    conn.execute("DELETE FROM import_session_ids WHERE session_id=? AND transaction_id=?", (session_id, tx_id))
+    conn.execute("DELETE FROM transactions WHERE id=?", (tx_id,))
+    remaining = conn.execute(
+        "SELECT COUNT(*) FROM import_session_ids WHERE session_id=?",
+        (session_id,),
+    ).fetchone()[0]
+    if remaining:
+        conn.execute("UPDATE import_sessions SET count=? WHERE id=?", (remaining, session_id))
+    else:
+        conn.execute("DELETE FROM import_sessions WHERE id=?", (session_id,))
+    conn.commit(); conn.close()
+    return {"deleted": 1, "remaining": remaining, "session_deleted": remaining == 0}
 
 @app.delete("/api/import/sessions/{session_id}", dependencies=[Depends(check_auth)])
 def undo_import_session(session_id: int):
