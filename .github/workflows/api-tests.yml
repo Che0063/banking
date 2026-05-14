@@ -1,0 +1,18 @@
+name: API workflow tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  api-workflows:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install backend dependencies
+        run: pip install -r backend/requirements.txt
+      - name: Run API workflow tests
+        run: python -m unittest tests.test_api_workflows
