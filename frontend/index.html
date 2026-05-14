@@ -113,6 +113,9 @@
     .filter-row{display:flex;gap:8px;align-items:center;margin-bottom:20px;flex-wrap:wrap}
     .fsel{padding:7px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-family:'DM Sans',sans-serif;font-size:13px;background:var(--surface);color:var(--text)}
     .toast{position:fixed;bottom:24px;right:24px;background:var(--text);color:white;padding:12px 18px;border-radius:var(--radius);font-size:13.5px;font-weight:500;z-index:999;box-shadow:var(--shadow-md);animation:slideUp .2s ease}
+    .cell-active{outline:2px solid var(--accent);outline-offset:-2px;background:var(--accent-light)!important}
+    .cell-edit{width:100%;border:1px solid var(--accent);border-radius:4px;padding:3px 5px;font:inherit;background:white}
+    .kbd{font-family:'DM Mono',monospace;font-size:10.5px;padding:1px 5px;border:1px solid var(--border);border-radius:3px;background:var(--surface2);color:var(--text2)}
     @keyframes slideUp{from{transform:translateY(12px);opacity:0}to{transform:translateY(0);opacity:1}}
     .empty-state{text-align:center;padding:48px 24px;color:var(--text3)}
     .upload-area{border:2px dashed var(--border);border-radius:var(--radius);padding:28px;text-align:center;cursor:pointer;transition:all .15s;display:block}
@@ -241,6 +244,35 @@ function BulkEditModal({count,categories,settings,onClose,onSave}){
   return(<div className="overlay" onClick={e=>e.target===e.currentTarget&&onClose()}><div className="modal"><div className="mhdr"><h3>Bulk Edit — {count} transactions</h3><button className="btn btn-ghost btn-sm" onClick={onClose}><I n="x"/></button></div><div className="mbody"><p style={{fontSize:13,color:'var(--text2)',marginBottom:14}}>Only filled fields will be updated.</p><div className="form-grid"><div className="form-group"><label className="form-label">Date (set all to)</label><input type="date" className="form-input" value={date} onChange={e=>setDate(e.target.value)}/></div><div className="form-group"><label className="form-label">Category</label><select className="form-select" value={category} onChange={e=>setCategory(e.target.value)}><option value="">— no change —</option>{categories.map(c=><option key={c}>{c}</option>)}</select></div><div className="form-group"><label className="form-label">{settings.person1_name}'s split (%)</label><div style={{display:'flex',gap:6,alignItems:'center'}}><input type="number" min="0" max="100" step="1" className="form-input" style={{flex:1}} placeholder="e.g. 50" value={p1pct} onChange={e=>setP1pct(e.target.value)}/><span style={{color:'var(--text2)'}}>%</span></div><span className="form-hint">Leave blank = no change</span></div></div></div><div className="mfoot"><button className="btn btn-secondary" onClick={onClose}>Cancel</button><button className="btn btn-primary" onClick={save} disabled={saving}>{saving?'Saving…':`Apply to ${count}`}</button></div></div></div>);
 }
 
+function InlineCell({tx,col,value,active,editing,onActivate,onEdit,onMove,onSave,categories}){
+  const [draft,setDraft]=useState(value??'');
+  useEffect(()=>setDraft(value??''),[value,editing]);
+  const commit=()=>{if(String(draft??'')!==String(value??''))onSave(tx,col,draft);onEdit(null);};
+  const key=e=>{
+    if(editing){
+      if(e.key==='Enter'){e.preventDefault();commit();}
+      if(e.key==='Escape'){e.preventDefault();setDraft(value??'');onEdit(null);}
+      if(e.key==='Tab'){e.preventDefault();commit();onMove(e.shiftKey?'left':'right');}
+      return;
+    }
+    if(e.key==='Enter'){e.preventDefault();onEdit(col);}
+    else if(e.key==='ArrowRight'||e.key==='Tab'){e.preventDefault();onMove('right');}
+    else if(e.key==='ArrowLeft'){e.preventDefault();onMove('left');}
+    else if(e.key==='ArrowDown'){e.preventDefault();onMove('down');}
+    else if(e.key==='ArrowUp'){e.preventDefault();onMove('up');}
+  };
+  const common={className:active?'cell-active':'',tabIndex:0,onClick:e=>{e.stopPropagation();onActivate(col);},onDoubleClick:e=>{e.stopPropagation();onEdit(col);},onKeyDown:key};
+  if(editing){
+    const inputProps={className:'cell-edit',value:draft,onChange:e=>setDraft(e.target.value),onBlur:commit,autoFocus:true,onKeyDown:key,onClick:e=>e.stopPropagation()};
+    if(col==='category')return <td {...common}><select {...inputProps}>{categories.map(c=><option key={c}>{c}</option>)}</select></td>;
+    if(col==='notes'||col==='merchant')return <td {...common}><input type="text" {...inputProps}/></td>;
+    if(col==='amount')return <td {...common}><input type="number" step="0.01" {...inputProps}/></td>;
+    if(col==='split')return <td {...common}><input type="text" placeholder="50 or 50/50" {...inputProps}/></td>;
+    return <td {...common}><input type="date" {...inputProps}/></td>;
+  }
+  return <td {...common}>{value||'—'}</td>;
+}
+
 // ── Column Filter Popup ───────────────────────────────────────────────────────
 function ColFilter({col,colType,current,onApply,onClose}){
   const [text,setText]=useState(current?.text||'');
@@ -306,8 +338,10 @@ function ImportReviewModal({rows,skipped,onClose,onConfirm}){
   const [solveMsg,setSolveMsg]=useState('');
   const [sortByMobile,setSortByMobile]=useState(true);
   const [expandedDups,setExpandedDups]=useState(new Set());
+  const [activeRow,setActiveRow]=useState(0);
   useEffect(()=>{authFetch(`${API}/api/summary`).then(r=>r.json()).then(d=>setCurBal(d));},[]);
   const setAction=(i,v)=>setActions(a=>({...a,[i]:v}));
+  const setActionAdv=(i,v,nextIdx=null)=>{setAction(i,v);setActiveRow(Math.min(rows.length-1,nextIdx==null?activeRow+1:nextIdx));};
   const setVd=(i,v)=>setVdEdits(a=>({...a,[i]:v}));
   const toggleDupExpand=i=>setExpandedDups(s=>{const n=new Set(s);n.has(i)?n.delete(i):n.add(i);return n;});
 
@@ -347,6 +381,18 @@ function ImportReviewModal({rows,skipped,onClose,onConfirm}){
     const ad=a._vd||a.date||'';const bd=b._vd||b.date||'';
     return ad<bd?-1:ad>bd?1:0;
   }):indexedRows;
+  useEffect(()=>{
+    const h=e=>{
+      if(['INPUT','SELECT','TEXTAREA'].includes(e.target.tagName))return;
+      const cur=sorted[activeRow]; if(!cur)return;
+      if(e.key==='ArrowDown'){e.preventDefault();setActiveRow(i=>Math.min(sorted.length-1,i+1));}
+      if(e.key==='ArrowUp'){e.preventDefault();setActiveRow(i=>Math.max(0,i-1));}
+      if(e.key==='i'){e.preventDefault();setActionAdv(cur._i,'import');}
+      if(e.key==='s'){e.preventDefault();setActionAdv(cur._i,'skip');}
+      if(e.key==='r'&&cur.duplicate_of){e.preventDefault();setActionAdv(cur._i,'replace');}
+    };
+    window.addEventListener('keydown',h);return()=>window.removeEventListener('keydown',h);
+  },[activeRow,sorted]);
 
   // Group by display date for demarcation
   const getGroupDate=r=>sortByMobile?(r._vd||r.date||''):(r.date||'');
@@ -372,7 +418,7 @@ function ImportReviewModal({rows,skipped,onClose,onConfirm}){
   // Render rows grouped with day dividers
   const renderedRows=[];let lastGroupDate='';
   sorted.forEach((r,si)=>{
-    const i=r._i;const isDup=!!r.duplicate_of;const action=actions[i];
+    const i=r._i;const isDup=!!r.duplicate_of;const action=actions[i];const isActive=activeRow===si;
     const gd=getGroupDate(r);
     if(gd!==lastGroupDate){
       const dbCount=dbCounts[gd]||0;
@@ -392,7 +438,7 @@ function ImportReviewModal({rows,skipped,onClose,onConfirm}){
     const dupOf=r.duplicate_of;
     const isExpanded=expandedDups.has(i);
     renderedRows.push(
-      <tr key={i} style={{background:isDup?(action==='skip'?'#fff5e6':'#fff9ed'):(action==='skip'?'#f8f8f8':'white'),borderLeft:isDup?'3px solid var(--warn)':'none'}}>
+      <tr key={i} onClick={()=>setActiveRow(si)} style={{background:isActive?'#e8f4f0':isDup?(action==='skip'?'#fff5e6':'#fff9ed'):(action==='skip'?'#f8f8f8':'white'),borderLeft:isActive?'3px solid var(--accent)':isDup?'3px solid var(--warn)':'none'}}>
         <td style={{padding:'7px 8px',borderBottom:'1px solid var(--border)',fontFamily:'DM Mono',fontSize:10.5}}>{fmtDate(r.date)}</td>
         <td style={{padding:'7px 8px',borderBottom:'1px solid var(--border)'}}>
           <input type="date" value={vdEdits[i]} onChange={e=>setVd(i,e.target.value)}
@@ -404,15 +450,15 @@ function ImportReviewModal({rows,skipped,onClose,onConfirm}){
         <td style={{padding:'7px 8px',borderBottom:'1px solid var(--border)',minWidth:90}}>
           {isDup?(
             <button onClick={()=>toggleDupExpand(i)} style={{fontSize:10,padding:'2px 6px',border:'1px solid var(--warn)',borderRadius:3,background:'var(--warn-light)',color:'var(--warn)',cursor:'pointer',whiteSpace:'nowrap'}}>
-              {isExpanded?'▲ Hide':'⚠ Dup of →'}
+              {isExpanded?'▲ Hide':`⚠ ${Math.round(dupOf._match_score||0)}% →`}
             </button>
           ):<span className="badge" style={{background:'var(--accent-light)',color:'var(--accent)',fontSize:10}}>New</span>}
         </td>
         <td style={{padding:'7px 8px',borderBottom:'1px solid var(--border)',minWidth:120}}>
           <div style={{display:'flex',gap:3,flexWrap:'wrap'}}>
-            <button className={`btn btn-sm${action==='import'?' btn-primary':' btn-secondary'}`} style={{padding:'2px 7px',fontSize:10.5}} onClick={()=>setAction(i,'import')}>✓ Import</button>
-            <button className={`btn btn-sm${action==='skip'?' btn-danger':' btn-secondary'}`} style={{padding:'2px 7px',fontSize:10.5}} onClick={()=>setAction(i,'skip')}>✕ Skip</button>
-            {isDup&&<button className={`btn btn-sm${action==='replace'?' btn-primary':' btn-secondary'}`} style={{padding:'2px 7px',fontSize:10.5,background:action==='replace'?'#6c3483':'',borderColor:action==='replace'?'#6c3483':''}} onClick={()=>setAction(i,'replace')} title="Update existing transaction with this mobile date (fixes pending→finalised)">↻ Replace</button>}
+            <button className={`btn btn-sm${action==='import'?' btn-primary':' btn-secondary'}`} style={{padding:'2px 7px',fontSize:10.5}} onClick={()=>setActionAdv(i,'import',si+1)}>✓ Import</button>
+            <button className={`btn btn-sm${action==='skip'?' btn-danger':' btn-secondary'}`} style={{padding:'2px 7px',fontSize:10.5}} onClick={()=>setActionAdv(i,'skip',si+1)}>✕ Skip</button>
+            {isDup&&<button className={`btn btn-sm${action==='replace'?' btn-primary':' btn-secondary'}`} style={{padding:'2px 7px',fontSize:10.5,background:action==='replace'?'#6c3483':'',borderColor:action==='replace'?'#6c3483':''}} onClick={()=>setActionAdv(i,'replace',si+1)} title="Update existing transaction with this mobile date (fixes pending→finalised)">↻ Replace</button>}
           </div>
         </td>
       </tr>
@@ -476,11 +522,16 @@ function ImportReviewModal({rows,skipped,onClose,onConfirm}){
       </div>}
       {/* Dup controls */}
       {dups.length>0&&<div style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:8,marginBottom:8,padding:'6px 10px',background:'var(--warn-light)',border:'1px solid #fce4b2',borderRadius:'var(--radius-sm)'}}>
-        <span style={{fontSize:12.5,color:'var(--warn)',fontWeight:500}}><I n="warn" s={13}/> {dups.length} possible duplicate{dups.length!==1?'s':''} — expand "⚠ Dup of →" to compare · use <span style={{background:'#6c3483',color:'white',padding:'1px 5px',borderRadius:3,fontSize:10}}>↻ Replace</span> to update existing transaction's mobile date (pending→finalised)</span>
+        <span style={{fontSize:12.5,color:'var(--warn)',fontWeight:500}}><I n="warn" s={13}/> {dups.length} possible duplicate{dups.length!==1?'s':''} · shortcuts: <span className="kbd">I</span> import <span className="kbd">S</span> skip <span className="kbd">R</span> replace <span className="kbd">↑↓</span> move</span>
         <div style={{display:'flex',gap:6}}>
           <button className="btn btn-secondary btn-sm" onClick={()=>setAllDups('skip')}>Skip all dups</button>
           <button className="btn btn-secondary btn-sm" onClick={()=>setAllDups('import')}>Import all dups</button>
         </div>
+      </div>}
+      {sorted[activeRow]?.duplicate_of&&<div style={{position:'sticky',top:0,zIndex:3,background:'white',border:'1px solid #fce4b2',borderRadius:'var(--radius-sm)',padding:'8px 12px',marginBottom:8,fontSize:12.5,boxShadow:'var(--shadow)'}}>
+        <strong style={{color:'var(--warn)'}}>Active duplicate {Math.round(sorted[activeRow].duplicate_of._match_score||0)}%</strong>
+        <span style={{marginLeft:10,color:'var(--text2)'}}>{sorted[activeRow].merchant} ↔ {sorted[activeRow].duplicate_of.merchant}</span>
+        <span style={{marginLeft:10,color:'var(--text3)'}}>Δ date {sorted[activeRow].duplicate_of._match_reasons?.date_delta_days ?? 0}d · merchant {sorted[activeRow].duplicate_of._match_reasons?.merchant_similarity ?? '—'}%</span>
       </div>}
       <div style={{overflowY:'auto',maxHeight:'58vh'}}>
         <table style={{width:'100%',fontSize:12.5,tableLayout:'auto',borderCollapse:'collapse',minWidth:700}}>
@@ -793,6 +844,10 @@ function Transactions({settings,categories}){
   const [runBal,setRunBal]=useState({});
   const [ctxMenu,setCtxMenu]=useState(null); // {tx, x, y}
   const tableRef=React.useRef(null);
+  const editableCols=['date','value_date','merchant','category','notes','amount','split'];
+  const [activeCell,setActiveCell]=useState(null); // {row,col}
+  const [editCell,setEditCell]=useState(null);
+  const [undoTx,setUndoTx]=useState(null);
   const [txYear,setTxYear]=useState(String(new Date().getFullYear()));
   const [txMonth,setTxMonth]=useState('');
   const [txYears,setTxYears]=useState([]);
@@ -852,6 +907,41 @@ function Transactions({settings,categories}){
     await authFetch(`${API}/api/transactions/${tx.id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({...tx,person1_pct:p1,person2_pct:p2,value_date:tx.value_date||null})});
     load();
   };
+  const moveCell=dir=>{
+    if(!activeCell||!txs.length)return;
+    let ri=activeCell.row, ci=editableCols.indexOf(activeCell.col);
+    if(dir==='right')ci++; if(dir==='left')ci--; if(dir==='down')ri++; if(dir==='up')ri--;
+    if(ci<0){ci=editableCols.length-1;ri--;} if(ci>=editableCols.length){ci=0;ri++;}
+    ri=Math.max(0,Math.min(txs.length-1,ri));ci=Math.max(0,Math.min(editableCols.length-1,ci));
+    setActiveCell({row:ri,col:editableCols[ci]});setEditCell(null);
+  };
+  const valueFor=(tx,col)=>{
+    if(col==='split')return tx.person1_pct!=null?String(Math.round(tx.person1_pct*100)):'';
+    return col==='value_date'?(tx.value_date||''):tx[col];
+  };
+  const saveCell=async(tx,col,v)=>{
+    const fd={...tx,value_date:tx.value_date||null,notes:tx.notes||null};
+    if(col==='date')fd.date=v;
+    if(col==='value_date')fd.value_date=v||null;
+    if(col==='merchant')fd.merchant=String(v).trim()||tx.merchant;
+    if(col==='category'){fd.category=v;fd.is_transfer=v==='Transfer';}
+    if(col==='notes')fd.notes=String(v).trim()||null;
+    if(col==='amount'){const n=parseFloat(v);if(!isNaN(n))fd.amount=n;}
+    if(col==='split'){
+      const raw=String(v).trim();
+      const pct=raw.includes('/')?parseFloat(raw.split('/')[0]):parseFloat(raw);
+      if(!isNaN(pct)){fd.person1_pct=pct/100;fd.person2_pct=1-fd.person1_pct;}
+    }
+    setUndoTx(tx);
+    await authFetch(`${API}/api/transactions/${tx.id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(fd)});
+    setToast('Updated. Undo available.');load();
+  };
+  const undoLast=async()=>{
+    if(!undoTx)return;
+    await authFetch(`${API}/api/transactions/${undoTx.id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({...undoTx,value_date:undoTx.value_date||null,notes:undoTx.notes||null})});
+    setUndoTx(null);setToast('Undone');load();
+  };
+  const exportCsv=async()=>{try{const qs=buildUrl({page:0,pageSize:99999}).split('?')[1]||'';await downloadAuthFile(`${API}/api/export/csv?${qs}`,'banking_transactions.csv');}catch{setToast('CSV export failed');}};
   const load=useCallback(()=>{
     authFetch(buildUrl()).then(r=>r.json()).then(d=>{setData(d);setSel(new Set());setSelAll(false);});
     authFetch(`${API}/api/transactions/running-balance`).then(r=>r.json()).then(d=>{const m={};if(Array.isArray(d))d.forEach(r=>{m[r.id]=r;});setRunBal(m);});
@@ -912,6 +1002,7 @@ function Transactions({settings,categories}){
       <div><h2>Transactions</h2><p>{total.toLocaleString()} total</p></div>
       <div style={{display:'flex',gap:8}}>
         {hasF&&<button className="btn btn-secondary btn-sm" onClick={()=>{setCf({});setPage(0);}}>Clear filters</button>}
+        <button className="btn btn-secondary" onClick={exportCsv}><I n="download" s={14}/>CSV</button>
         <button className="btn btn-primary" onClick={()=>setModal({type:'add'})}><I n="plus" s={14}/>Add</button>
       </div>
     </div>
@@ -937,6 +1028,7 @@ function Transactions({settings,categories}){
         </select>
       </div>
     </div>
+    <p className="form-hint" style={{marginBottom:8}}>Excel mode: click a cell, press Enter to edit, arrows/Tab to move, blur or Enter to save.</p>
     {selCount>0&&<div className="bulk-bar">
       <I n="warn" s={15}/>
       <span>{selCount} selected</span>
@@ -964,7 +1056,7 @@ function Transactions({settings,categories}){
                 return null;
               };
               const rows=[];let lastKey=null;
-              txs.forEach(tx=>{
+              txs.forEach((tx,ri)=>{
                 const key=getGroupKey(tx);
                 if(key&&key!==lastKey){
                   const [yr,mo]=key.split('-');
@@ -975,15 +1067,15 @@ function Transactions({settings,categories}){
                 }
                 rows.push(<tr key={tx.id} className={sel.has(tx.id)?'sel':''} style={{cursor:'pointer'}} onClick={e=>{if(e.target.tagName==='INPUT'||e.target.closest('button'))return;setModal({type:'edit',tx});}} onContextMenu={e=>{e.preventDefault();setCtxMenu({tx,x:e.clientX,y:e.clientY});}}>
                 <td style={{width:cw.chk}}><input type="checkbox" checked={sel.has(tx.id)} onChange={()=>togSel(tx.id)}/></td>
-                <td style={{width:cw.date}} className="mono">{fmtDate(tx.date)}</td>
-                <td style={{width:cw.vd}} className="mono">{tx.value_date?fmtDate(tx.value_date):<span className="badge badge-pending">Pending</span>}</td>
-                <td style={{width:cw.merchant,fontWeight:500}}>{tx.merchant}</td>
-                <td style={{width:cw.cat}}><span className={`badge ${tx.is_transfer?'badge-transfer':tx.is_starting_balance?'badge-start':tx.category==='Unassigned'?'badge-pending':'badge-cat'}`} style={tx.category==='Unassigned'?{background:'#fee2e2',color:'#991b1b',border:'1px solid #fca5a5'}:{}}>{tx.category==='Unassigned'?'⚠ Unassigned':tx.category}</span></td>
-                <td style={{width:cw.notes,color:'var(--text3)',fontSize:12.5}}>{tx.notes||'—'}</td>
-                <td style={{width:cw.amt,textAlign:'right'}} className={`mono ${tx.amount<0?'amt-neg':'amt-pos'}`}>{fmt(tx.amount)}</td>
+                <InlineCell tx={tx} col="date" value={tx.date} active={activeCell?.row===ri&&activeCell?.col==='date'} editing={editCell?.row===ri&&editCell?.col==='date'} onActivate={col=>setActiveCell({row:ri,col})} onEdit={col=>setEditCell(col?{row:ri,col}:null)} onMove={moveCell} onSave={saveCell} categories={categories}/>
+                <InlineCell tx={tx} col="value_date" value={tx.value_date||''} active={activeCell?.row===ri&&activeCell?.col==='value_date'} editing={editCell?.row===ri&&editCell?.col==='value_date'} onActivate={col=>setActiveCell({row:ri,col})} onEdit={col=>setEditCell(col?{row:ri,col}:null)} onMove={moveCell} onSave={saveCell} categories={categories}/>
+                <InlineCell tx={tx} col="merchant" value={tx.merchant} active={activeCell?.row===ri&&activeCell?.col==='merchant'} editing={editCell?.row===ri&&editCell?.col==='merchant'} onActivate={col=>setActiveCell({row:ri,col})} onEdit={col=>setEditCell(col?{row:ri,col}:null)} onMove={moveCell} onSave={saveCell} categories={categories}/>
+                <InlineCell tx={tx} col="category" value={tx.category} active={activeCell?.row===ri&&activeCell?.col==='category'} editing={editCell?.row===ri&&editCell?.col==='category'} onActivate={col=>setActiveCell({row:ri,col})} onEdit={col=>setEditCell(col?{row:ri,col}:null)} onMove={moveCell} onSave={saveCell} categories={categories}/>
+                <InlineCell tx={tx} col="notes" value={tx.notes||''} active={activeCell?.row===ri&&activeCell?.col==='notes'} editing={editCell?.row===ri&&editCell?.col==='notes'} onActivate={col=>setActiveCell({row:ri,col})} onEdit={col=>setEditCell(col?{row:ri,col}:null)} onMove={moveCell} onSave={saveCell} categories={categories}/>
+                <InlineCell tx={tx} col="amount" value={tx.amount} active={activeCell?.row===ri&&activeCell?.col==='amount'} editing={editCell?.row===ri&&editCell?.col==='amount'} onActivate={col=>setActiveCell({row:ri,col})} onEdit={col=>setEditCell(col?{row:ri,col}:null)} onMove={moveCell} onSave={saveCell} categories={categories}/>
                 <td style={{width:cw.p1,textAlign:'right'}} className="mono">{tx.is_pending?<span className="badge badge-pending">Pending</span>:tx.is_starting_balance?'—':fmtAbs(tx.person1_amount)}</td>
                 <td style={{width:cw.p2,textAlign:'right'}} className="mono">{tx.is_pending?<span className="badge badge-pending">Pending</span>:tx.is_starting_balance?'—':fmtAbs(tx.person2_amount)}</td>
-                <td style={{width:cw.split,textAlign:'right',fontFamily:'DM Mono',fontSize:12,color:'var(--text3)'}}>{tx.is_starting_balance||tx.is_pending?'—':`${Math.round(tx.person1_pct*100)}/${Math.round(tx.person2_pct*100)}`}</td>
+                <InlineCell tx={tx} col="split" value={tx.is_starting_balance||tx.is_pending?'':`${Math.round(tx.person1_pct*100)}/${Math.round(tx.person2_pct*100)}`} active={activeCell?.row===ri&&activeCell?.col==='split'} editing={editCell?.row===ri&&editCell?.col==='split'} onActivate={col=>setActiveCell({row:ri,col})} onEdit={col=>setEditCell(col?{row:ri,col}:null)} onMove={moveCell} onSave={saveCell} categories={categories}/>
                 <td style={{width:cw.sbal,textAlign:'right'}} className={`mono ${(runBal[tx.id]?.shared_balance||0)>=0?'amt-pos':'amt-neg'}`}>{runBal[tx.id]?fmtAbs(runBal[tx.id].shared_balance):'—'}</td>
                 <td style={{width:cw.act}}><div style={{display:'flex',gap:3,justifyContent:'flex-end'}}>
                   <button className="btn btn-ghost btn-sm" onClick={()=>setModal({type:'edit',tx})}><I n="edit" s={13}/></button>
@@ -1033,6 +1125,7 @@ function Transactions({settings,categories}){
     {modal?.type==='del'&&<div className="overlay" onClick={e=>e.target===e.currentTarget&&setModal(null)}><div className="modal" style={{maxWidth:420}}><div className="mhdr"><h3>Delete Transaction</h3><button className="btn btn-ghost btn-sm" onClick={()=>setModal(null)}><I n="x"/></button></div><div className="mbody"><p style={{fontSize:14,color:'var(--text2)',marginBottom:8}}>Delete <strong>{modal.tx.merchant}</strong> ({fmtAbs(modal.tx.amount)} on {fmtDate(modal.tx.date)})?</p><p style={{fontSize:13,color:'var(--danger)',fontWeight:500}}>This action cannot be undone.</p></div><div className="mfoot"><button className="btn btn-secondary" onClick={()=>setModal(null)}>Cancel</button><button className="btn btn-danger" onClick={del}>Delete permanently</button></div></div></div>}
     {modal?.type==='bulkdel'&&<div className="overlay" onClick={e=>e.target===e.currentTarget&&setModal(null)}><div className="modal" style={{maxWidth:420}}><div className="mhdr"><h3>Delete {selCount} Transactions</h3><button className="btn btn-ghost btn-sm" onClick={()=>setModal(null)}><I n="x"/></button></div><div className="mbody"><p style={{fontSize:14,color:'var(--text2)',marginBottom:8}}>Delete <strong>{selCount} selected transactions</strong>?</p><p style={{fontSize:13,color:'var(--danger)',fontWeight:500}}>This action cannot be undone.</p></div><div className="mfoot"><button className="btn btn-secondary" onClick={()=>setModal(null)}>Cancel</button><button className="btn btn-danger" onClick={bulkDel}>Delete {selCount} permanently</button></div></div></div>}
     {modal?.type==='bulkedit'&&<BulkEditModal count={selCount} categories={categories} settings={settings} onClose={()=>setModal(null)} onSave={bulkEdit}/>}
+    {undoTx&&<div className="toast" style={{right:24,bottom:72}}>Last edit saved <button className="btn btn-secondary btn-sm" style={{marginLeft:10}} onClick={undoLast}>Undo</button></div>}
     {toast&&<Toast msg={toast} onDone={()=>setToast('')}/>}
   </div>);
 }
@@ -1074,6 +1167,9 @@ function ImportPage(){
   const [sessions,setSessions]=useState([]);
   const loadSessions=()=>authFetch(`${API}/api/import/sessions`).then(r=>r.json()).then(setSessions);
   useEffect(()=>{loadSessions();},[]);
+  const [presets,setPresets]=useState([]);const [presetName,setPresetName]=useState('');
+  const loadPresets=()=>authFetch(`${API}/api/import/presets`).then(r=>r.json()).then(setPresets);
+  useEffect(()=>{loadPresets();},[]);
   const [parsing,setParsing]=useState(false);
   const [review,setReview]=useState(null); // {rows,skipped}
   const [result,setResult]=useState(null);
@@ -1103,6 +1199,12 @@ function ImportPage(){
   };
 
   const pick=(f,t)=>{setFile(f);setType(t);setReview(null);setResult(null);setErr('');};
+  const savePreset=async()=>{
+    if(!presetName.trim()||!type){setErr('Choose a file type and preset name first.');return;}
+    await authFetch(`${API}/api/import/presets`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:presetName.trim(),source:type,notes:'Saved from import screen'})});
+    setPresetName('');setToast('Preset saved');loadPresets();
+  };
+  const delPreset=async id=>{await authFetch(`${API}/api/import/presets/${id}`,{method:'DELETE'});setToast('Preset deleted');loadPresets();};
 
   const runAttachDates=async()=>{
     if(!attachFile)return;
@@ -1151,6 +1253,19 @@ function ImportPage(){
           {attachResult.unmatched>0&&<div style={{marginTop:4,fontSize:12,color:'var(--text3)'}}>Unmatched rows may have different merchants or amounts — you can handle them manually via Edit on each transaction.</div>}
         </div>}
       </div>
+      <div className="card card-padded" style={{gridColumn:'1/-1'}}>
+        <div className="sec-title" style={{marginTop:0}}>Import Presets</div>
+        <p style={{fontSize:13,color:'var(--text2)',marginBottom:10}}>Save common import sources so the right workflow is one click.</p>
+        <div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap',marginBottom:10}}>
+          {presets.map(p=><span key={p.id} className="tag"><button onClick={()=>{setType(p.source);setFile(null);setReview(null);setResult(null);}} style={{border:'none',background:'none',cursor:'pointer'}}>{p.name} · {p.source}</button><button onClick={()=>delPreset(p.id)}>×</button></span>)}
+          {presets.length===0&&<span style={{fontSize:13,color:'var(--text3)'}}>No presets yet.</span>}
+        </div>
+        <div style={{display:'flex',gap:8}}>
+          <input className="form-input" placeholder="Preset name" value={presetName} onChange={e=>setPresetName(e.target.value)} style={{maxWidth:240}}/>
+          <select className="fsel" value={type||''} onChange={e=>setType(e.target.value)}><option value="">Choose source</option><option value="xlsx">Spreadsheet</option><option value="commbank">CommBank CSV</option></select>
+          <button className="btn btn-secondary btn-sm" onClick={savePreset}>Save preset</button>
+        </div>
+      </div>
     </div>}
     {result&&<div style={{marginTop:16,padding:16,background:'var(--accent-light)',borderRadius:'var(--radius)',border:'1px solid #bdddd4'}}><p style={{fontWeight:600,color:'var(--accent)',marginBottom:4}}>✓ Import complete</p><p style={{fontSize:13,color:'var(--text2)'}}>{result.imported} imported, {result.skipped} skipped.</p><button className="btn btn-secondary btn-sm" style={{marginTop:8}} onClick={()=>setResult(null)}>Import another</button></div>}
     {sessions.length>0&&!review&&<ImportHistory sessions={sessions} onUndo={undoSession} onChanged={loadSessions} setToast={setToast}/>}
@@ -1177,6 +1292,7 @@ function SettingsPage({settings,onSave,categories,onCategoriesChange}){
   const [restoreFile,setRestoreFile]=useState(null);
   const [restoring,setRestoring]=useState(false);
   const [restoreMsg,setRestoreMsg]=useState('');
+  const [auditRows,setAuditRows]=useState([]);
 
   const doRestore=async()=>{
     if(!restoreFile||!window.confirm('Restore database from this backup? Current data will be overwritten (a server-side backup is saved automatically).'))return;
@@ -1193,6 +1309,7 @@ function SettingsPage({settings,onSave,categories,onCategoriesChange}){
 
   useEffect(()=>{
     loadRules();
+    loadAudit();
     authFetch(`${API}/api/settings`).then(r=>r.json()).then(d=>{
       setP1bal(d.person1_starting_balance||'0');setP2bal(d.person2_starting_balance||'0');
       setDupCfg({dup_match_date:d.dup_match_date!=='0',dup_match_amount:d.dup_match_amount!=='0',dup_match_merchant:d.dup_match_merchant!=='0',dup_date_tolerance:parseInt(d.dup_date_tolerance||'3'),dup_merchant_threshold:parseInt(d.dup_merchant_threshold||'90')});
@@ -1200,6 +1317,7 @@ function SettingsPage({settings,onSave,categories,onCategoriesChange}){
   },[]);
 
   const loadRules=()=>authFetch(`${API}/api/rules`).then(r=>r.json()).then(setRules);
+  const loadAudit=()=>authFetch(`${API}/api/audit?limit=20`).then(r=>r.json()).then(setAuditRows);
   const saveNames=async()=>{await authFetch(`${API}/api/settings`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(names)});onSave(names);setSaved(true);setTimeout(()=>setSaved(false),2000);};
   const saveBals=async()=>{await authFetch(`${API}/api/settings`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({person1_starting_balance:parseFloat(p1bal)||0,person2_starting_balance:parseFloat(p2bal)||0})});setToast('Starting balances saved');};
   const saveDup=async()=>{await authFetch(`${API}/api/settings`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({dup_match_date:dupCfg.dup_match_date?'1':'0',dup_match_amount:dupCfg.dup_match_amount?'1':'0',dup_match_merchant:dupCfg.dup_match_merchant?'1':'0',dup_date_tolerance:String(dupCfg.dup_date_tolerance),dup_merchant_threshold:String(dupCfg.dup_merchant_threshold)})});setToast('Duplicate settings saved');};
@@ -1329,6 +1447,13 @@ function SettingsPage({settings,onSave,categories,onCategoriesChange}){
           {restoreMsg&&<p style={{marginTop:8,fontSize:13,color:restoreMsg.startsWith('Error')?'var(--danger)':'var(--accent)',fontWeight:500}}>{restoreMsg}</p>}
         </div>
       </div>
+    </div>
+    <div className="card card-padded" style={{marginTop:24}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
+        <div className="sec-title" style={{marginTop:0,marginBottom:0}}>Activity Log</div>
+        <button className="btn btn-secondary btn-sm" onClick={loadAudit}>Refresh</button>
+      </div>
+      {auditRows.length===0?<p style={{fontSize:13,color:'var(--text3)'}}>No activity yet.</p>:<table style={{width:'100%',fontSize:12.5,borderCollapse:'collapse'}}><thead><tr><th style={{textAlign:'left',padding:'6px 8px',borderBottom:'1px solid var(--border)'}}>Time</th><th style={{textAlign:'left',padding:'6px 8px',borderBottom:'1px solid var(--border)'}}>Action</th><th style={{textAlign:'left',padding:'6px 8px',borderBottom:'1px solid var(--border)'}}>Entity</th><th style={{textAlign:'left',padding:'6px 8px',borderBottom:'1px solid var(--border)'}}>Details</th></tr></thead><tbody>{auditRows.map(r=><tr key={r.id}><td style={{padding:'6px 8px',borderBottom:'1px solid var(--border)',fontFamily:'DM Mono'}}>{r.created_at}</td><td style={{padding:'6px 8px',borderBottom:'1px solid var(--border)'}}>{r.action}</td><td style={{padding:'6px 8px',borderBottom:'1px solid var(--border)'}}>{r.entity_type}{r.entity_id?` #${r.entity_id}`:''}</td><td style={{padding:'6px 8px',borderBottom:'1px solid var(--border)',color:'var(--text2)',maxWidth:360,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{r.details||'{}'}</td></tr>)}</tbody></table>}
     </div>
     {preview&&<RulePreviewModal changes={preview} onClose={()=>setPreview(null)} onApply={applySelected}/>}
     {toast&&<Toast msg={toast} onDone={()=>setToast('')}/>}
