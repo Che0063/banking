@@ -340,6 +340,8 @@ const inferReviewDate=(raw,refDate,fallbackDate)=>{
   const v=String(raw||'').trim();
   if(!v)return '';
   if(/^\d{4}-\d{2}-\d{2}$/.test(v))return v;
+  const appended=v.match(/^(\d{4}-\d{2}-\d{2})(\d{1,2})$/);
+  if(appended)return inferReviewDate(appended[2],refDate,fallbackDate);
   const ref=new Date(`${refDate||fallbackDate||today()}T00:00:00`);
   if(Number.isNaN(ref.getTime()))return v;
   const parts=v.replace(/[.-]/g,'/').split('/').filter(Boolean).map(x=>parseInt(x,10));
@@ -353,8 +355,13 @@ const inferReviewDate=(raw,refDate,fallbackDate)=>{
     const [day,month]=parts;
     chosen=best([-1,0,1].map(off=>new Date(ref.getFullYear()+off,month-1,day)));
   }else if(parts.length===3){
-    const [day,month,year]=parts;
-    chosen=new Date(year<100?2000+year:year,month-1,day);
+    if(parts[0]>31){
+      const [year,month,day]=parts;
+      chosen=new Date(year,month-1,day);
+    }else{
+      const [day,month,year]=parts;
+      chosen=new Date(year<100?2000+year:year,month-1,day);
+    }
   }
   return chosen&&!Number.isNaN(chosen.getTime())?chosen.toISOString().slice(0,10):v;
 };
@@ -482,7 +489,7 @@ function ImportReviewModal({rows,skipped,onClose,onConfirm}){
       <tr key={i} onClick={()=>setActiveRow(si)} style={{background:isActive?'#e8f4f0':isDup?(action==='skip'?'#fff5e6':'#fff9ed'):(action==='skip'?'#f8f8f8':'white'),borderLeft:isActive?'3px solid var(--accent)':isDup?'3px solid var(--warn)':'none'}}>
         <td style={{padding:'7px 8px',borderBottom:'1px solid var(--border)',fontFamily:'DM Mono',fontSize:10.5}}>{fmtDate(r.date)}</td>
         <td style={{padding:'7px 8px',borderBottom:'1px solid var(--border)'}}>
-          <input data-mobile-date-input ref={el=>{mobileRefs.current[i]=el;}} type="text" placeholder="day or d/m" value={vdEdits[i]} onChange={e=>setVd(i,e.target.value)} onBlur={()=>normalizeVd(i)} onKeyDown={e=>{if(e.key==='Tab'){e.preventDefault();normalizeVd(i);jumpMobile(si,e.shiftKey);}if(e.key==='Enter'){e.preventDefault();normalizeVd(i);jumpMobile(si,false);}}}
+          <input data-mobile-date-input ref={el=>{mobileRefs.current[i]=el;}} type="text" placeholder="day or d/m" value={vdEdits[i]} onFocus={e=>e.target.select()} onChange={e=>setVd(i,e.target.value)} onBlur={()=>normalizeVd(i)} onKeyDown={e=>{if(e.key==='Tab'){e.preventDefault();normalizeVd(i);jumpMobile(si,e.shiftKey);}if(e.key==='Enter'){e.preventDefault();normalizeVd(i);jumpMobile(si,false);}}}
             style={{fontFamily:'DM Mono',fontSize:10.5,border:'1px solid var(--border)',borderRadius:3,padding:'2px 4px',background:vdEdits[i]?'white':'#fff8f0',width:108,color:vdEdits[i]?'var(--text)':'var(--warn)'}}/>
         </td>
         <td style={{padding:'7px 8px',borderBottom:'1px solid var(--border)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:160,fontSize:12}}>{r.merchant}</td>
@@ -997,7 +1004,9 @@ function Transactions({settings,categories}){
   const nextTxAfter=tx=>{
     const idx=txs.findIndex(t=>t.id===tx?.id);
     if(idx<0)return null;
-    return txs.slice(idx+1).find(t=>t.is_pending&&!t.is_starting_balance)||txs[idx+1]||null;
+    const pending=txs.filter(t=>t.id!==tx.id&&t.is_pending&&!t.is_starting_balance);
+    if(pending.length)return txs.slice(idx+1).find(t=>t.is_pending&&!t.is_starting_balance)||pending[0];
+    return txs[(idx+1)%txs.length]&&txs[(idx+1)%txs.length].id!==tx.id?txs[(idx+1)%txs.length]:null;
   };
   const save=async(fd)=>{
     if(modal.tx?.id){await authFetch(`${API}/api/transactions/${modal.tx.id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(fd)});setToast('Updated');}
