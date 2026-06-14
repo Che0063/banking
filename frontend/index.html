@@ -363,7 +363,11 @@ const inferReviewDate=(raw,refDate,fallbackDate)=>{
       chosen=new Date(year<100?2000+year:year,month-1,day);
     }
   }
-  return chosen&&!Number.isNaN(chosen.getTime())?chosen.toISOString().slice(0,10):v;
+  if(!chosen||Number.isNaN(chosen.getTime()))return v;
+  const yyyy=chosen.getFullYear();
+  const mm=String(chosen.getMonth()+1).padStart(2,'0');
+  const dd=String(chosen.getDate()).padStart(2,'0');
+  return `${yyyy}-${mm}-${dd}`;
 };
 
 function ImportReviewModal({rows,skipped,onClose,onConfirm}){
