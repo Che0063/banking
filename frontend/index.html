@@ -389,9 +389,9 @@ function ImportReviewModal({rows,skipped,onClose,onConfirm}){
   const setAction=(i,v)=>setActions(a=>({...a,[i]:v}));
   const setActionAdv=(i,v,nextIdx=null)=>{setAction(i,v);setActiveRow(Math.min(rows.length-1,nextIdx==null?activeRow+1:nextIdx));};
   const setVd=(i,v)=>setVdEdits(a=>({...a,[i]:v}));
-  const normalizeVd=i=>setVdEdits(a=>({...a,[i]:inferReviewDate(a[i],rows[i]?.date,rows[i]?.value_date)}));
+  const normalizeVd=(i,raw=null)=>setVdEdits(a=>({...a,[i]:inferReviewDate(raw??a[i],rows[i]?.date,rows[i]?.value_date)}));
   const jumpMobile=(displayIdx,back=false)=>{
-    const ni=Math.max(0,Math.min(sorted.length-1,displayIdx+(back?-1:1)));
+    const ni=(displayIdx+(back?-1:1)+sorted.length)%sorted.length;
     const next=sorted[ni];
     if(next){setActiveRow(ni);setTimeout(()=>mobileRefs.current[next._i]?.focus(),0);}
   };
@@ -493,7 +493,7 @@ function ImportReviewModal({rows,skipped,onClose,onConfirm}){
       <tr key={i} onClick={()=>setActiveRow(si)} style={{background:isActive?'#e8f4f0':isDup?(action==='skip'?'#fff5e6':'#fff9ed'):(action==='skip'?'#f8f8f8':'white'),borderLeft:isActive?'3px solid var(--accent)':isDup?'3px solid var(--warn)':'none'}}>
         <td style={{padding:'7px 8px',borderBottom:'1px solid var(--border)',fontFamily:'DM Mono',fontSize:10.5}}>{fmtDate(r.date)}</td>
         <td style={{padding:'7px 8px',borderBottom:'1px solid var(--border)'}}>
-          <input data-mobile-date-input ref={el=>{mobileRefs.current[i]=el;}} type="text" placeholder="day or d/m" value={vdEdits[i]} onFocus={e=>e.target.select()} onChange={e=>setVd(i,e.target.value)} onBlur={()=>normalizeVd(i)} onKeyDown={e=>{if(e.key==='Tab'){e.preventDefault();normalizeVd(i);jumpMobile(si,e.shiftKey);}if(e.key==='Enter'){e.preventDefault();normalizeVd(i);jumpMobile(si,false);}}}
+          <input data-mobile-date-input ref={el=>{mobileRefs.current[i]=el;}} type="text" placeholder="day or d/m" value={vdEdits[i]} onFocus={e=>e.target.select()} onChange={e=>setVd(i,e.target.value)} onBlur={e=>normalizeVd(i,e.currentTarget.value)} onKeyDown={e=>{if(e.key==='Tab'){e.preventDefault();e.stopPropagation();normalizeVd(i,e.currentTarget.value);jumpMobile(si,e.shiftKey);}if(e.key==='Enter'){e.preventDefault();e.stopPropagation();normalizeVd(i,e.currentTarget.value);jumpMobile(si,false);}}}
             style={{fontFamily:'DM Mono',fontSize:10.5,border:'1px solid var(--border)',borderRadius:3,padding:'2px 4px',background:vdEdits[i]?'white':'#fff8f0',width:108,color:vdEdits[i]?'var(--text)':'var(--warn)'}}/>
         </td>
         <td style={{padding:'7px 8px',borderBottom:'1px solid var(--border)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:160,fontSize:12}}>{r.merchant}</td>
