@@ -545,7 +545,7 @@ function ImportReviewModal({rows,skipped,onClose,onConfirm}){
         <label style={{fontSize:12.5,display:'flex',alignItems:'center',gap:5,cursor:'pointer',color:'var(--text2)'}}>
           <input type="checkbox" checked={sortByMobile} onChange={e=>setSortByMobile(e.target.checked)}/> Sort by mobile date
         </label>
-        <button className="btn btn-ghost btn-sm" onClick={onClose}><I n="x"/></button>
+        <button tabIndex={-1} className="btn btn-ghost btn-sm" onClick={onClose}><I n="x"/></button>
       </div>
     </div>
     <div className="mbody" style={{padding:'12px 24px'}}>
@@ -561,7 +561,7 @@ function ImportReviewModal({rows,skipped,onClose,onConfirm}){
       {dups.length>0&&<div style={{background:'var(--accent-light)',border:'1px solid #bdddd4',borderRadius:'var(--radius-sm)',padding:'8px 12px',marginBottom:8,display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}>
         <span style={{fontSize:12.5,color:'var(--accent)',fontWeight:500}}>Target balance:</span>
         <input type="number" step="0.01" placeholder="Expected shared balance after import" value={targetBal} onChange={e=>setTargetBal(e.target.value)} style={{flex:1,minWidth:200,padding:'4px 8px',border:'1px solid var(--border)',borderRadius:'var(--radius-sm)',fontFamily:'DM Mono',fontSize:12.5}}/>
-        <button className="btn btn-primary btn-sm" onClick={solveBalance}>Suggest duplicates</button>
+        <button tabIndex={-1} className="btn btn-primary btn-sm" onClick={solveBalance}>Suggest duplicates</button>
         {solveMsg&&<span style={{fontSize:12,color:'var(--accent)',fontStyle:'italic'}}>{solveMsg}</span>}
       </div>}
       {/* xlsx date note */}
@@ -572,8 +572,8 @@ function ImportReviewModal({rows,skipped,onClose,onConfirm}){
       {dups.length>0&&<div style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:8,marginBottom:8,padding:'6px 10px',background:'var(--warn-light)',border:'1px solid #fce4b2',borderRadius:'var(--radius-sm)'}}>
         <span style={{fontSize:12.5,color:'var(--warn)',fontWeight:500}}><I n="warn" s={13}/> {dups.length} possible duplicate{dups.length!==1?'s':''} · shortcuts: <span className="kbd">I</span> import <span className="kbd">S</span> skip <span className="kbd">R</span> replace <span className="kbd">↑↓</span> move</span>
         <div style={{display:'flex',gap:6}}>
-          <button className="btn btn-secondary btn-sm" onClick={()=>setAllDups('skip')}>Skip all dups</button>
-          <button className="btn btn-secondary btn-sm" onClick={()=>setAllDups('import')}>Import all dups</button>
+          <button tabIndex={-1} className="btn btn-secondary btn-sm" onClick={()=>setAllDups('skip')}>Skip all dups</button>
+          <button tabIndex={-1} className="btn btn-secondary btn-sm" onClick={()=>setAllDups('import')}>Import all dups</button>
         </div>
       </div>}
       {sorted[activeRow]?.duplicate_of&&<div style={{position:'sticky',top:0,zIndex:3,background:'white',border:'1px solid #fce4b2',borderRadius:'var(--radius-sm)',padding:'8px 12px',marginBottom:8,fontSize:12.5,boxShadow:'var(--shadow)'}}>
@@ -602,8 +602,8 @@ function ImportReviewModal({rows,skipped,onClose,onConfirm}){
     <div className="mfoot" style={{justifyContent:'space-between'}}>
       <span style={{fontSize:13,color:'var(--text2)'}}>{importCount} new · {replaceCount} replace · {Object.values(actions).filter(v=>v==='skip').length} skip</span>
       <div style={{display:'flex',gap:8}}>
-        <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
-        <button className="btn btn-primary" onClick={confirm} disabled={saving||(importCount===0&&replaceCount===0)}>{saving?'Importing…':`Confirm ${importCount+replaceCount}`}</button>
+        <button tabIndex={-1} className="btn btn-secondary" onClick={onClose}>Cancel</button>
+        <button tabIndex={-1} className="btn btn-primary" onClick={confirm} disabled={saving||(importCount===0&&replaceCount===0)}>{saving?'Importing…':`Confirm ${importCount+replaceCount}`}</button>
       </div>
     </div>
   </div></div>);
