@@ -500,7 +500,7 @@ function ImportReviewModal({rows,skipped,onClose,onConfirm}){
         <td style={{padding:'7px 8px',borderBottom:'1px solid var(--border)',fontFamily:'DM Mono',fontSize:10.5}}>{fmtDate(r.date)}</td>
         <td style={{padding:'7px 8px',borderBottom:'1px solid var(--border)'}}>
           <input data-mobile-date-input data-display-index={si} ref={el=>{mobileRefs.current[i]=el;}} type="text" placeholder="day or d/m" value={vdEdits[i]} onFocus={e=>e.target.select()} onChange={e=>setVd(i,e.target.value)} onBlur={e=>normalizeVd(i,e.currentTarget.value)} onKeyDown={e=>{if(e.key==='Tab'){e.preventDefault();e.stopPropagation();normalizeVd(i,e.currentTarget.value);jumpMobile(e.currentTarget,e.shiftKey);}if(e.key==='Enter'){e.preventDefault();e.stopPropagation();normalizeVd(i,e.currentTarget.value);jumpMobile(e.currentTarget,false);}}}
-            style={{fontFamily:'DM Mono',fontSize:10.5,border:'1px solid var(--border)',borderRadius:3,padding:'2px 4px',background:vdEdits[i]?'white':'#fff8f0',width:108,color:vdEdits[i]?'var(--text)':'var(--warn)'}}/>
+            style={{fontFamily:'DM Mono',fontSize:12,border:'1px solid var(--border)',borderRadius:3,padding:'3px 5px',background:vdEdits[i]?'white':'#fff8f0',width:130,color:vdEdits[i]?'var(--text)':'var(--warn)'}}/>
         </td>
         <td style={{padding:'7px 8px',borderBottom:'1px solid var(--border)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:160,fontSize:12}}>{r.merchant}</td>
         <td style={{padding:'7px 8px',borderBottom:'1px solid var(--border)',fontFamily:'DM Mono',fontSize:11,textAlign:'right',color:r.amount<0?'var(--danger)':'var(--income)',whiteSpace:'nowrap'}}>{fmt(r.amount)}</td>
