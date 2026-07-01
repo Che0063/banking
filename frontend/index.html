@@ -225,16 +225,27 @@ function SplitInput({label,pct,onPctChange,amount,readonly}){
 }
 
 // ── Tx Modal ──────────────────────────────────────────────────────────────────
-function TxModal({tx,onClose,onSave,settings,categories}){
+function TxModal({tx,onClose,onSave,onSaveNext,hasNext,settings,categories}){
   const isEdit=!!tx?.id;
   const [f,setF]=useState({date:tx?.date||today(),vd:tx?.value_date||'',amount:tx?.amount!=null?String(tx.amount):'',merchant:tx?.merchant||'',category:tx?.category||(categories[0]||'Groceries'),notes:tx?.notes||'',p1pct:tx?.person1_pct!=null?String(Math.round(tx.person1_pct*100)):'',is_sb:tx?.is_starting_balance||false});
   const [saving,setSaving]=useState(false);const [err,setErr]=useState('');
+  useEffect(()=>{setF({date:tx?.date||today(),vd:tx?.value_date||'',amount:tx?.amount!=null?String(tx.amount):'',merchant:tx?.merchant||'',category:tx?.category||(categories[0]||'Groceries'),notes:tx?.notes||'',p1pct:tx?.person1_pct!=null?String(Math.round(tx.person1_pct*100)):'',is_sb:tx?.is_starting_balance||false});setErr('');},[tx?.id]);
   const set=(k,v)=>setF(x=>({...x,[k]:v}));
   const amount=parseFloat(f.amount)||0;
   const p1pct=f.p1pct===''?null:parseFloat(f.p1pct)/100;
   const p2pct=p1pct!=null?1-p1pct:null;
-  const save=async()=>{if(!f.merchant.trim()){setErr('Merchant required.');return;}if(!f.amount||isNaN(parseFloat(f.amount))){setErr('Amount required.');return;}setSaving(true);try{await onSave({date:f.date,value_date:f.vd||null,amount:parseFloat(f.amount),merchant:f.merchant.trim(),category:f.category,notes:f.notes.trim()||null,person1_pct:p1pct,is_transfer:f.category==='Transfer',is_starting_balance:f.is_sb});onClose();}catch{setErr('Save failed.');setSaving(false);}};
-  return(<div className="overlay" onClick={e=>e.target===e.currentTarget&&onClose()}><div className="modal"><div className="mhdr"><h3>{isEdit?'Edit Transaction':'Add Transaction'}</h3><button className="btn btn-ghost btn-sm" onClick={onClose}><I n="x"/></button></div><div className="mbody"><div className="form-grid"><div className="form-grid form-2"><div className="form-group"><label className="form-label">Statement Date</label><input type="date" className="form-input" value={f.date} onChange={e=>set('date',e.target.value)}/></div><div className="form-group"><label className="form-label">Mobile Date</label><input type="date" className="form-input" value={f.vd} onChange={e=>set('vd',e.target.value)}/>{!f.vd&&<span className="form-hint">Blank = Pending</span>}</div></div><div className="form-group"><label className="form-label">Amount ($)</label><input type="number" className="form-input" step="0.01" placeholder="-25.00" value={f.amount} onChange={e=>set('amount',e.target.value)}/></div><div className="form-group"><label className="form-label">Merchant</label><input type="text" className="form-input" value={f.merchant} onChange={e=>set('merchant',e.target.value)}/></div><div className="form-grid form-2"><div className="form-group"><label className="form-label">Category</label><select className="form-select" value={f.category} onChange={e=>set('category',e.target.value)}>{categories.map(c=><option key={c}>{c}</option>)}</select></div><div className="form-group"><label className="form-label">Notes</label><input type="text" className="form-input" value={f.notes} onChange={e=>set('notes',e.target.value)}/></div></div><div className="form-group"><label className="form-label">Split</label><div style={{display:'flex',gap:8,marginBottom:6}}><label style={{display:'flex',alignItems:'center',gap:5,padding:'4px 10px',border:'1px solid var(--border)',borderRadius:'var(--radius-sm)',cursor:'pointer',fontSize:12.5,background:f.p1pct==='0'?'var(--accent-light)':'',borderColor:f.p1pct==='0'?'var(--accent)':''}}><input type="checkbox" checked={f.p1pct==='0'} onChange={()=>set('p1pct',f.p1pct==='0'?'':'0')} style={{accentColor:'var(--accent)'}}/><span>100% {settings.person2_name}</span></label><label style={{display:'flex',alignItems:'center',gap:5,padding:'4px 10px',border:'1px solid var(--border)',borderRadius:'var(--radius-sm)',cursor:'pointer',fontSize:12.5,background:f.p1pct==='100'?'#eef2ff':'',borderColor:f.p1pct==='100'?'#6366f1':''}}><input type="checkbox" checked={f.p1pct==='100'} onChange={()=>set('p1pct',f.p1pct==='100'?'':'100')} style={{accentColor:'#6366f1'}}/><span>100% {settings.person1_name}</span></label><label style={{display:'flex',alignItems:'center',gap:5,padding:'4px 10px',border:'1px solid var(--border)',borderRadius:'var(--radius-sm)',cursor:'pointer',fontSize:12.5,background:p1pct===0.5?'#f0fdf4':'',borderColor:p1pct===0.5?'#16a34a':''}}><input type="checkbox" checked={p1pct===0.5} onChange={()=>set('p1pct',p1pct===0.5?'':'50')} style={{accentColor:'#16a34a'}}/><span>50/50</span></label></div><SplitInput label={settings.person1_name} pct={p1pct} onPctChange={v=>set('p1pct',v)} amount={amount}/><SplitInput label={settings.person2_name} pct={p2pct} readonly amount={amount}/>{f.p1pct===''&&<p style={{fontSize:12,color:'var(--warn)',marginTop:4}}>No split entered → Pending</p>}</div>{err&&<p style={{color:'var(--danger)',fontSize:13}}>{err}</p>}</div></div><div className="mfoot"><button className="btn btn-secondary" onClick={onClose}>Cancel</button><button className="btn btn-primary" onClick={save} disabled={saving}>{saving?'Saving…':isEdit?'Save Changes':'Add'}</button></div></div></div>);
+  const payload=()=>({date:f.date,value_date:f.vd||null,amount:parseFloat(f.amount),merchant:f.merchant.trim(),category:f.category,notes:f.notes.trim()||null,person1_pct:p1pct,is_transfer:f.category==='Transfer',is_starting_balance:f.is_sb});
+  const save=async(next=false)=>{
+    if(!f.merchant.trim()){setErr('Merchant required.');return;}
+    if(!f.amount||isNaN(parseFloat(f.amount))){setErr('Amount required.');return;}
+    setSaving(true);
+    try{
+      await onSave(payload(),{next});
+      setSaving(false);
+      if(next&&onSaveNext)onSaveNext();else onClose();
+    }catch{setErr('Save failed.');setSaving(false);}
+  };
+  return(<div className="overlay" onClick={e=>e.target===e.currentTarget&&onClose()}><div className="modal"><div className="mhdr"><h3>{isEdit?'Edit Transaction':'Add Transaction'}</h3><button className="btn btn-ghost btn-sm" onClick={onClose}><I n="x"/></button></div><div className="mbody"><div className="form-grid"><div className="form-grid form-2"><div className="form-group"><label className="form-label">Statement Date</label><input type="date" className="form-input" value={f.date} onChange={e=>set('date',e.target.value)}/></div><div className="form-group"><label className="form-label">Mobile Date</label><input type="date" className="form-input" value={f.vd} onChange={e=>set('vd',e.target.value)}/>{!f.vd&&<span className="form-hint">Blank = Pending</span>}</div></div><div className="form-group"><label className="form-label">Amount ($)</label><input type="number" className="form-input" step="0.01" placeholder="-25.00" value={f.amount} onChange={e=>set('amount',e.target.value)}/></div><div className="form-group"><label className="form-label">Merchant</label><input type="text" className="form-input" value={f.merchant} onChange={e=>set('merchant',e.target.value)}/></div><div className="form-grid form-2"><div className="form-group"><label className="form-label">Category</label><select className="form-select" value={f.category} onChange={e=>set('category',e.target.value)}>{categories.map(c=><option key={c}>{c}</option>)}</select></div><div className="form-group"><label className="form-label">Notes</label><input type="text" className="form-input" value={f.notes} onChange={e=>set('notes',e.target.value)}/></div></div><div className="form-group"><label className="form-label">Split</label><div style={{display:'flex',gap:8,marginBottom:6}}><label style={{display:'flex',alignItems:'center',gap:5,padding:'4px 10px',border:'1px solid var(--border)',borderRadius:'var(--radius-sm)',cursor:'pointer',fontSize:12.5,background:f.p1pct==='0'?'var(--accent-light)':'',borderColor:f.p1pct==='0'?'var(--accent)':''}}><input type="checkbox" checked={f.p1pct==='0'} onChange={()=>set('p1pct',f.p1pct==='0'?'':'0')} style={{accentColor:'var(--accent)'}}/><span>100% {settings.person2_name}</span></label><label style={{display:'flex',alignItems:'center',gap:5,padding:'4px 10px',border:'1px solid var(--border)',borderRadius:'var(--radius-sm)',cursor:'pointer',fontSize:12.5,background:f.p1pct==='100'?'#eef2ff':'',borderColor:f.p1pct==='100'?'#6366f1':''}}><input type="checkbox" checked={f.p1pct==='100'} onChange={()=>set('p1pct',f.p1pct==='100'?'':'100')} style={{accentColor:'#6366f1'}}/><span>100% {settings.person1_name}</span></label><label style={{display:'flex',alignItems:'center',gap:5,padding:'4px 10px',border:'1px solid var(--border)',borderRadius:'var(--radius-sm)',cursor:'pointer',fontSize:12.5,background:p1pct===0.5?'#f0fdf4':'',borderColor:p1pct===0.5?'#16a34a':''}}><input type="checkbox" checked={p1pct===0.5} onChange={()=>set('p1pct',p1pct===0.5?'':'50')} style={{accentColor:'#16a34a'}}/><span>50/50</span></label></div><SplitInput label={settings.person1_name} pct={p1pct} onPctChange={v=>set('p1pct',v)} amount={amount}/><SplitInput label={settings.person2_name} pct={p2pct} readonly amount={amount}/>{f.p1pct===''&&<p style={{fontSize:12,color:'var(--warn)',marginTop:4}}>No split entered → Pending</p>}</div>{err&&<p style={{color:'var(--danger)',fontSize:13}}>{err}</p>}</div></div><div className="mfoot"><button className="btn btn-secondary" onClick={onClose}>Cancel</button>{isEdit&&hasNext&&<button className="btn btn-secondary" onClick={()=>save(true)} disabled={saving}>{saving?'Saving…':'Save & Next'}</button>}<button className="btn btn-primary" onClick={()=>save(false)} disabled={saving}>{saving?'Saving…':isEdit?'Save Changes':'Add'}</button></div></div></div>);
 }
 
 // ── Bulk Edit Modal ───────────────────────────────────────────────────────────
@@ -325,6 +336,40 @@ function RulePreviewModal({changes,onClose,onApply}){
 }
 
 // ── Import Review Modal ───────────────────────────────────────────────────────
+const inferReviewDate=(raw,refDate,fallbackDate)=>{
+  const v=String(raw||'').trim();
+  if(!v)return '';
+  if(/^\d{4}-\d{2}-\d{2}$/.test(v))return v;
+  const appended=v.match(/^(\d{4}-\d{2}-\d{2})(\d{1,2})$/);
+  if(appended)return inferReviewDate(appended[2],refDate,fallbackDate);
+  const ref=new Date(`${refDate||fallbackDate||today()}T00:00:00`);
+  if(Number.isNaN(ref.getTime()))return v;
+  const parts=v.replace(/[.-]/g,'/').split('/').filter(Boolean).map(x=>parseInt(x,10));
+  if(parts.some(Number.isNaN))return v;
+  const best=cands=>cands.filter(d=>d&&!Number.isNaN(d.getTime())).sort((a,b)=>Math.abs(a-ref)-Math.abs(b-ref))[0];
+  let chosen=null;
+  if(parts.length===1){
+    const day=parts[0];
+    chosen=best([-1,0,1].map(off=>new Date(ref.getFullYear(),ref.getMonth()+off,day)));
+  }else if(parts.length===2){
+    const [day,month]=parts;
+    chosen=best([-1,0,1].map(off=>new Date(ref.getFullYear()+off,month-1,day)));
+  }else if(parts.length===3){
+    if(parts[0]>31){
+      const [year,month,day]=parts;
+      chosen=new Date(year,month-1,day);
+    }else{
+      const [day,month,year]=parts;
+      chosen=new Date(year<100?2000+year:year,month-1,day);
+    }
+  }
+  if(!chosen||Number.isNaN(chosen.getTime()))return v;
+  const yyyy=chosen.getFullYear();
+  const mm=String(chosen.getMonth()+1).padStart(2,'0');
+  const dd=String(chosen.getDate()).padStart(2,'0');
+  return `${yyyy}-${mm}-${dd}`;
+};
+
 function ImportReviewModal({rows,skipped,onClose,onConfirm}){
   const dups=rows.filter(r=>r.duplicate_of);
   const [actions,setActions]=useState(()=>{
@@ -339,10 +384,23 @@ function ImportReviewModal({rows,skipped,onClose,onConfirm}){
   const [sortByMobile,setSortByMobile]=useState(true);
   const [expandedDups,setExpandedDups]=useState(new Set());
   const [activeRow,setActiveRow]=useState(0);
+  const mobileRefs=useRef({});
   useEffect(()=>{authFetch(`${API}/api/summary`).then(r=>r.json()).then(d=>setCurBal(d));},[]);
   const setAction=(i,v)=>setActions(a=>({...a,[i]:v}));
   const setActionAdv=(i,v,nextIdx=null)=>{setAction(i,v);setActiveRow(Math.min(rows.length-1,nextIdx==null?activeRow+1:nextIdx));};
   const setVd=(i,v)=>setVdEdits(a=>({...a,[i]:v}));
+  const normalizeVd=(i,raw=null)=>setVdEdits(a=>({...a,[i]:inferReviewDate(raw??a[i],rows[i]?.date,rows[i]?.value_date)}));
+  const jumpMobile=(el,back=false)=>{
+    setTimeout(()=>{
+      const inputs=[...document.querySelectorAll('[data-mobile-date-input]')];
+      if(!inputs.length)return;
+      const idx=Math.max(0,inputs.indexOf(el));
+      const next=inputs[(idx+(back?-1:1)+inputs.length)%inputs.length];
+      const rowIdx=Number(next?.dataset?.displayIndex||0);
+      setActiveRow(rowIdx);
+      next?.focus();
+    },0);
+  };
   const toggleDupExpand=i=>setExpandedDups(s=>{const n=new Set(s);n.has(i)?n.delete(i):n.add(i);return n;});
 
   const solveBalance=()=>{
@@ -441,24 +499,24 @@ function ImportReviewModal({rows,skipped,onClose,onConfirm}){
       <tr key={i} onClick={()=>setActiveRow(si)} style={{background:isActive?'#e8f4f0':isDup?(action==='skip'?'#fff5e6':'#fff9ed'):(action==='skip'?'#f8f8f8':'white'),borderLeft:isActive?'3px solid var(--accent)':isDup?'3px solid var(--warn)':'none'}}>
         <td style={{padding:'7px 8px',borderBottom:'1px solid var(--border)',fontFamily:'DM Mono',fontSize:10.5}}>{fmtDate(r.date)}</td>
         <td style={{padding:'7px 8px',borderBottom:'1px solid var(--border)'}}>
-          <input type="date" value={vdEdits[i]} onChange={e=>setVd(i,e.target.value)}
-            style={{fontFamily:'DM Mono',fontSize:10.5,border:'1px solid var(--border)',borderRadius:3,padding:'2px 4px',background:vdEdits[i]?'white':'#fff8f0',width:108,color:vdEdits[i]?'var(--text)':'var(--warn)'}}/>
+          <input data-mobile-date-input data-display-index={si} ref={el=>{mobileRefs.current[i]=el;}} type="text" placeholder="day or d/m" value={vdEdits[i]} onFocus={e=>e.target.select()} onChange={e=>setVd(i,e.target.value)} onBlur={e=>normalizeVd(i,e.currentTarget.value)} onKeyDown={e=>{if(e.key==='Tab'){e.preventDefault();e.stopPropagation();normalizeVd(i,e.currentTarget.value);jumpMobile(e.currentTarget,e.shiftKey);}if(e.key==='Enter'){e.preventDefault();e.stopPropagation();normalizeVd(i,e.currentTarget.value);jumpMobile(e.currentTarget,false);}}}
+            style={{fontFamily:'DM Mono',fontSize:12,border:'1px solid var(--border)',borderRadius:3,padding:'3px 5px',background:vdEdits[i]?'white':'#fff8f0',width:130,color:vdEdits[i]?'var(--text)':'var(--warn)'}}/>
         </td>
         <td style={{padding:'7px 8px',borderBottom:'1px solid var(--border)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:160,fontSize:12}}>{r.merchant}</td>
         <td style={{padding:'7px 8px',borderBottom:'1px solid var(--border)',fontFamily:'DM Mono',fontSize:11,textAlign:'right',color:r.amount<0?'var(--danger)':'var(--income)',whiteSpace:'nowrap'}}>{fmt(r.amount)}</td>
         <td style={{padding:'7px 8px',borderBottom:'1px solid var(--border)'}}><span className="badge badge-cat" style={{fontSize:10}}>{r.category}</span></td>
         <td style={{padding:'7px 8px',borderBottom:'1px solid var(--border)',minWidth:90}}>
           {isDup?(
-            <button onClick={()=>toggleDupExpand(i)} style={{fontSize:10,padding:'2px 6px',border:'1px solid var(--warn)',borderRadius:3,background:'var(--warn-light)',color:'var(--warn)',cursor:'pointer',whiteSpace:'nowrap'}}>
+            <button tabIndex={-1} onClick={()=>toggleDupExpand(i)} style={{fontSize:10,padding:'2px 6px',border:'1px solid var(--warn)',borderRadius:3,background:'var(--warn-light)',color:'var(--warn)',cursor:'pointer',whiteSpace:'nowrap'}}>
               {isExpanded?'▲ Hide':`⚠ ${Math.round(dupOf._match_score||0)}% →`}
             </button>
           ):<span className="badge" style={{background:'var(--accent-light)',color:'var(--accent)',fontSize:10}}>New</span>}
         </td>
         <td style={{padding:'7px 8px',borderBottom:'1px solid var(--border)',minWidth:120}}>
           <div style={{display:'flex',gap:3,flexWrap:'wrap'}}>
-            <button className={`btn btn-sm${action==='import'?' btn-primary':' btn-secondary'}`} style={{padding:'2px 7px',fontSize:10.5}} onClick={()=>setActionAdv(i,'import',si+1)}>✓ Import</button>
-            <button className={`btn btn-sm${action==='skip'?' btn-danger':' btn-secondary'}`} style={{padding:'2px 7px',fontSize:10.5}} onClick={()=>setActionAdv(i,'skip',si+1)}>✕ Skip</button>
-            {isDup&&<button className={`btn btn-sm${action==='replace'?' btn-primary':' btn-secondary'}`} style={{padding:'2px 7px',fontSize:10.5,background:action==='replace'?'#6c3483':'',borderColor:action==='replace'?'#6c3483':''}} onClick={()=>setActionAdv(i,'replace',si+1)} title="Update existing transaction with this mobile date (fixes pending→finalised)">↻ Replace</button>}
+            <button tabIndex={-1} className={`btn btn-sm${action==='import'?' btn-primary':' btn-secondary'}`} style={{padding:'2px 7px',fontSize:10.5}} onClick={()=>setActionAdv(i,'import',si+1)}>✓ Import</button>
+            <button tabIndex={-1} className={`btn btn-sm${action==='skip'?' btn-danger':' btn-secondary'}`} style={{padding:'2px 7px',fontSize:10.5}} onClick={()=>setActionAdv(i,'skip',si+1)}>✕ Skip</button>
+            {isDup&&<button tabIndex={-1} className={`btn btn-sm${action==='replace'?' btn-primary':' btn-secondary'}`} style={{padding:'2px 7px',fontSize:10.5,background:action==='replace'?'#6c3483':'',borderColor:action==='replace'?'#6c3483':''}} onClick={()=>setActionAdv(i,'replace',si+1)} title="Update existing transaction with this mobile date (fixes pending→finalised)">↻ Replace</button>}
           </div>
         </td>
       </tr>
@@ -497,7 +555,7 @@ function ImportReviewModal({rows,skipped,onClose,onConfirm}){
         <label style={{fontSize:12.5,display:'flex',alignItems:'center',gap:5,cursor:'pointer',color:'var(--text2)'}}>
           <input type="checkbox" checked={sortByMobile} onChange={e=>setSortByMobile(e.target.checked)}/> Sort by mobile date
         </label>
-        <button className="btn btn-ghost btn-sm" onClick={onClose}><I n="x"/></button>
+        <button tabIndex={-1} className="btn btn-ghost btn-sm" onClick={onClose}><I n="x"/></button>
       </div>
     </div>
     <div className="mbody" style={{padding:'12px 24px'}}>
@@ -513,7 +571,7 @@ function ImportReviewModal({rows,skipped,onClose,onConfirm}){
       {dups.length>0&&<div style={{background:'var(--accent-light)',border:'1px solid #bdddd4',borderRadius:'var(--radius-sm)',padding:'8px 12px',marginBottom:8,display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}>
         <span style={{fontSize:12.5,color:'var(--accent)',fontWeight:500}}>Target balance:</span>
         <input type="number" step="0.01" placeholder="Expected shared balance after import" value={targetBal} onChange={e=>setTargetBal(e.target.value)} style={{flex:1,minWidth:200,padding:'4px 8px',border:'1px solid var(--border)',borderRadius:'var(--radius-sm)',fontFamily:'DM Mono',fontSize:12.5}}/>
-        <button className="btn btn-primary btn-sm" onClick={solveBalance}>Suggest duplicates</button>
+        <button tabIndex={-1} className="btn btn-primary btn-sm" onClick={solveBalance}>Suggest duplicates</button>
         {solveMsg&&<span style={{fontSize:12,color:'var(--accent)',fontStyle:'italic'}}>{solveMsg}</span>}
       </div>}
       {/* xlsx date note */}
@@ -524,8 +582,8 @@ function ImportReviewModal({rows,skipped,onClose,onConfirm}){
       {dups.length>0&&<div style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:8,marginBottom:8,padding:'6px 10px',background:'var(--warn-light)',border:'1px solid #fce4b2',borderRadius:'var(--radius-sm)'}}>
         <span style={{fontSize:12.5,color:'var(--warn)',fontWeight:500}}><I n="warn" s={13}/> {dups.length} possible duplicate{dups.length!==1?'s':''} · shortcuts: <span className="kbd">I</span> import <span className="kbd">S</span> skip <span className="kbd">R</span> replace <span className="kbd">↑↓</span> move</span>
         <div style={{display:'flex',gap:6}}>
-          <button className="btn btn-secondary btn-sm" onClick={()=>setAllDups('skip')}>Skip all dups</button>
-          <button className="btn btn-secondary btn-sm" onClick={()=>setAllDups('import')}>Import all dups</button>
+          <button tabIndex={-1} className="btn btn-secondary btn-sm" onClick={()=>setAllDups('skip')}>Skip all dups</button>
+          <button tabIndex={-1} className="btn btn-secondary btn-sm" onClick={()=>setAllDups('import')}>Import all dups</button>
         </div>
       </div>}
       {sorted[activeRow]?.duplicate_of&&<div style={{position:'sticky',top:0,zIndex:3,background:'white',border:'1px solid #fce4b2',borderRadius:'var(--radius-sm)',padding:'8px 12px',marginBottom:8,fontSize:12.5,boxShadow:'var(--shadow)'}}>
@@ -554,8 +612,8 @@ function ImportReviewModal({rows,skipped,onClose,onConfirm}){
     <div className="mfoot" style={{justifyContent:'space-between'}}>
       <span style={{fontSize:13,color:'var(--text2)'}}>{importCount} new · {replaceCount} replace · {Object.values(actions).filter(v=>v==='skip').length} skip</span>
       <div style={{display:'flex',gap:8}}>
-        <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
-        <button className="btn btn-primary" onClick={confirm} disabled={saving||(importCount===0&&replaceCount===0)}>{saving?'Importing…':`Confirm ${importCount+replaceCount}`}</button>
+        <button tabIndex={-1} className="btn btn-secondary" onClick={onClose}>Cancel</button>
+        <button tabIndex={-1} className="btn btn-primary" onClick={confirm} disabled={saving||(importCount===0&&replaceCount===0)}>{saving?'Importing…':`Confirm ${importCount+replaceCount}`}</button>
       </div>
     </div>
   </div></div>);
@@ -953,6 +1011,13 @@ function Transactions({settings,categories}){
   const filter=(col,f)=>{setCf(x=>({...x,[col]:f}));setPage(0);};
   const txs=data.transactions||[];const total=data.total||0;const tp=Math.ceil(total/pageSize)||1;
 
+  const nextTxAfter=tx=>{
+    const idx=txs.findIndex(t=>t.id===tx?.id);
+    if(idx<0)return null;
+    const pending=txs.filter(t=>t.id!==tx.id&&t.is_pending&&!t.is_starting_balance);
+    if(pending.length)return txs.slice(idx+1).find(t=>t.is_pending&&!t.is_starting_balance)||pending[0];
+    return txs[(idx+1)%txs.length]&&txs[(idx+1)%txs.length].id!==tx.id?txs[(idx+1)%txs.length]:null;
+  };
   const save=async(fd)=>{
     if(modal.tx?.id){await authFetch(`${API}/api/transactions/${modal.tx.id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(fd)});setToast('Updated');}
     else{await authFetch(`${API}/api/transactions`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(fd)});setToast('Added');}
@@ -1101,7 +1166,7 @@ function Transactions({settings,categories}){
         </div>
       </div>
     </div>
-    {(modal?.type==='add'||modal?.type==='edit')&&<TxModal tx={modal.tx} onClose={()=>setModal(null)} onSave={save} settings={settings} categories={categories}/>}
+    {(modal?.type==='add'||modal?.type==='edit')&&<TxModal tx={modal.tx} onClose={()=>setModal(null)} onSave={save} onSaveNext={()=>{const n=nextTxAfter(modal.tx);n?setModal({type:'edit',tx:n}):setModal(null);}} hasNext={!!nextTxAfter(modal.tx)} settings={settings} categories={categories}/>}
     {ctxMenu&&<>
       <div style={{position:'fixed',inset:0,zIndex:999}} onClick={()=>setCtxMenu(null)}/>
       <div style={{position:'fixed',left:ctxMenu.x,top:ctxMenu.y,zIndex:1000,background:'white',border:'1px solid var(--border)',borderRadius:'var(--radius-sm)',boxShadow:'0 4px 16px rgba(0,0,0,.12)',minWidth:200,padding:'4px 0',fontSize:13}}>
