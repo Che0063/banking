@@ -174,6 +174,26 @@ def auth_check(credentials: HTTPAuthorizationCredentials = Depends(security)):
         return {"ok": True, "password_required": True}
     return {"ok": False, "password_required": True}
 
+def _read_build_file(name: str) -> str:
+    path = f"/app/{name}"
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            return f.read().strip() or "unknown"
+    except OSError:
+        return "unknown"
+
+@app.get("/api/version")
+def api_version():
+    """Build stamp for the active backend image (no auth)."""
+    built = os.environ.get("BUILD_DATE") or _read_build_file("BUILD_DATE")
+    sha = os.environ.get("GIT_SHA") or _read_build_file("GIT_SHA")
+    ref = os.environ.get("GIT_REF") or _read_build_file("GIT_REF")
+    return {
+        "built_at": built if built else "unknown",
+        "git_sha": sha if sha else "unknown",
+        "git_ref": ref if ref else "unknown",
+    }
+
 # ── Helpers ───────────────────────────────────────────────────────────────────
 def parse_date(raw: str) -> Optional[str]:
     for fmt in ("%d/%m/%Y", "%Y-%m-%d"):

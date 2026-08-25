@@ -31,6 +31,21 @@ class ApiWorkflowTests(unittest.TestCase):
     def tearDown(self):
         self.tmp.cleanup()
 
+    def test_version_endpoint_no_auth(self):
+        os.environ["BUILD_DATE"] = "2026-08-25T12:00:00Z"
+        os.environ["GIT_SHA"] = "abcdef1"
+        os.environ["GIT_REF"] = "cursor/test"
+        try:
+            res = self.client.get("/api/version")
+            self.assertEqual(res.status_code, 200, res.text)
+            body = res.json()
+            self.assertEqual(body["built_at"], "2026-08-25T12:00:00Z")
+            self.assertEqual(body["git_sha"], "abcdef1")
+            self.assertEqual(body["git_ref"], "cursor/test")
+        finally:
+            for key in ("BUILD_DATE", "GIT_SHA", "GIT_REF"):
+                os.environ.pop(key, None)
+
     def test_import_history_audit_exports_and_restore(self):
         self.assertEqual(self.client.get("/api/backup?token=bad").status_code, 401)
         self.assertEqual(self.client.get("/api/backup", headers=self.headers).status_code, 200)
