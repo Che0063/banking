@@ -449,7 +449,7 @@ def create_transaction(tx: TransactionIn):
     tx_id = cur.lastrowid
     audit(conn, "create", "transaction", tx_id, {"merchant": tx.merchant, "amount": tx.amount})
     conn.commit()
-    row = conn.execute("SELECT * FROM transactions WHERE id=last_insert_rowid()").fetchone()
+    row = conn.execute("SELECT * FROM transactions WHERE id=?", (tx_id,)).fetchone()
     conn.close()
     return row_to_tx(row)
 
