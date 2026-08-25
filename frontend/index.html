@@ -284,6 +284,22 @@ function InlineCell({tx,col,value,active,editing,onActivate,onEdit,onMove,onSave
   return <td {...common}>{value||'—'}</td>;
 }
 
+function NotesInputCell({tx,onSave}){
+  const [draft,setDraft]=useState(tx.notes||'');
+  useEffect(()=>setDraft(tx.notes||''),[tx.id,tx.notes]);
+  const commit=()=>{if(draft!==(tx.notes||''))onSave(tx,'notes',draft);};
+  return <td data-inline-control style={{width:150,padding:'6px 8px',borderBottom:'1px solid var(--border)',position:'relative',zIndex:2,pointerEvents:'auto'}} onMouseDown={e=>e.stopPropagation()} onClick={e=>e.stopPropagation()}><input data-inline-control className="cell-edit" style={{borderColor:'var(--border)',background:'white',pointerEvents:'auto'}} placeholder="Add note" value={draft} onMouseDown={e=>e.stopPropagation()} onClick={e=>e.stopPropagation()} onChange={e=>setDraft(e.target.value)} onBlur={commit} onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();e.currentTarget.blur();}}}/></td>;
+}
+
+function PendingSplitCell({tx,onSave}){
+  const [pct,setPct]=useState('');
+  useEffect(()=>setPct(tx.person1_pct!=null?String(Math.round(tx.person1_pct*100)):''),[tx.id,tx.person1_pct]);
+  const commit=()=>{const n=parseFloat(pct);if(!isNaN(n))onSave(tx,'split',String(n));};
+  if(tx.is_starting_balance)return <td style={{width:65,textAlign:'right',fontFamily:'DM Mono',fontSize:12,color:'var(--text3)'}}>—</td>;
+  if(!tx.is_pending)return <td style={{width:65,textAlign:'right',fontFamily:'DM Mono',fontSize:12,color:'var(--text3)'}}>{`${Math.round(tx.person1_pct*100)}/${Math.round(tx.person2_pct*100)}`}</td>;
+  return <td data-inline-control style={{width:190,padding:'5px 8px',borderBottom:'1px solid var(--border)',position:'relative',zIndex:2,pointerEvents:'auto'}} onMouseDown={e=>e.stopPropagation()} onClick={e=>e.stopPropagation()}><div data-inline-control style={{display:'flex',gap:6,alignItems:'center',justifyContent:'flex-end',pointerEvents:'auto'}}><input data-inline-control className="cell-edit" style={{width:78,borderColor:'var(--warn)',background:'#fff8f0',textAlign:'right',pointerEvents:'auto',fontWeight:600}} placeholder="P1 %" value={pct} onMouseDown={e=>e.stopPropagation()} onClick={e=>e.stopPropagation()} onChange={e=>setPct(e.target.value)} onBlur={commit} onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();commit();e.currentTarget.blur();}}}/><button data-inline-control type="button" className="btn btn-primary btn-sm" style={{padding:'3px 8px',fontSize:11,pointerEvents:'auto'}} onMouseDown={e=>e.stopPropagation()} onClick={e=>{e.stopPropagation();onSave(tx,'split','50');}}>50/50</button></div></td>;
+}
+
 // ── Column Filter Popup ───────────────────────────────────────────────────────
 function ColFilter({col,colType,current,onApply,onClose}){
   const [text,setText]=useState(current?.text||'');
@@ -886,7 +902,7 @@ function Dashboard({settings}){
 }
 
 // ── Transactions ──────────────────────────────────────────────────────────────
-const DW={chk:36,date:110,vd:100,merchant:190,cat:110,notes:150,amt:100,p1:95,p2:95,split:65,sbal:110,act:72};
+const DW={chk:36,date:110,vd:100,merchant:190,cat:110,notes:180,amt:100,p1:95,p2:95,split:190,sbal:110,act:72};
 function Transactions({settings,categories}){
   const [data,setData]=useState({transactions:[],total:0,all_ids:[]});
   const [search,setSearch]=useState('');
@@ -902,7 +918,7 @@ function Transactions({settings,categories}){
   const [runBal,setRunBal]=useState({});
   const [ctxMenu,setCtxMenu]=useState(null); // {tx, x, y}
   const tableRef=React.useRef(null);
-  const editableCols=['date','value_date','merchant','category','notes','amount','split'];
+  const editableCols=['date','value_date','merchant','category','amount','split'];
   const [activeCell,setActiveCell]=useState(null); // {row,col}
   const [editCell,setEditCell]=useState(null);
   const [undoTx,setUndoTx]=useState(null);
@@ -977,6 +993,19 @@ function Transactions({settings,categories}){
     if(col==='split')return tx.person1_pct!=null?String(Math.round(tx.person1_pct*100)):'';
     return col==='value_date'?(tx.value_date||''):tx[col];
   };
+  const localCellUpdate=(tx,col,v)=>{
+    const next={...tx};
+    if(col==='notes')next.notes=String(v).trim()||null;
+    if(col==='split'){
+      const raw=String(v).trim();
+      const pct=raw.includes('/')?parseFloat(raw.split('/')[0]):parseFloat(raw);
+      if(!isNaN(pct)){
+        next.person1_pct=pct/100;next.person2_pct=1-next.person1_pct;next.is_pending=false;
+        next.person1_amount=Math.round(next.person1_pct*next.amount*100)/100;next.person2_amount=Math.round(next.person2_pct*next.amount*100)/100;
+      }
+    }
+    return next;
+  };
   const saveCell=async(tx,col,v)=>{
     const fd={...tx,value_date:tx.value_date||null,notes:tx.notes||null};
     if(col==='date')fd.date=v;
@@ -991,6 +1020,7 @@ function Transactions({settings,categories}){
       if(!isNaN(pct)){fd.person1_pct=pct/100;fd.person2_pct=1-fd.person1_pct;}
     }
     setUndoTx(tx);
+    setData(d=>({...d,transactions:(d.transactions||[]).map(t=>t.id===tx.id?localCellUpdate(tx,col,v):t)}));
     await authFetch(`${API}/api/transactions/${tx.id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(fd)});
     setToast('Updated. Undo available.');load();
   };
@@ -1105,7 +1135,7 @@ function Transactions({settings,categories}){
     </div>}
     <div className="card">
       <div className="table-outer">
-        <table ref={tableRef} style={{minWidth:900}}>
+        <table ref={tableRef} style={{minWidth:1120}}>
           <thead><tr>
             <th style={{width:cw.chk}}><div className="th-inner"><input type="checkbox" checked={txs.length>0&&sel.size===txs.length} onChange={togPage}/></div></th>
             {cols.map(c=><RsTh key={c.key} colKey={c.key} label={c.label} width={cw[c.w]||100} onResize={w=>resize(c.w,w)} sortCol={sc} sortDir={sd} onSort={c.sort?sort:null} colType={c.ct} colFilter={cf[c.key]} onFilter={filter}/>)}
@@ -1130,17 +1160,17 @@ function Transactions({settings,categories}){
                   rows.push(<tr key={`grp-${key}`}><td colSpan={12} style={{padding:'6px 12px',background:'var(--surface2)',fontWeight:600,fontSize:12,color:'var(--text2)',borderTop:'2px solid var(--border)',letterSpacing:'.2px'}}>{label}</td></tr>);
                   lastKey=key;
                 }
-                rows.push(<tr key={tx.id} className={sel.has(tx.id)?'sel':''} style={{cursor:'pointer'}} onClick={e=>{if(e.target.tagName==='INPUT'||e.target.closest('button'))return;setModal({type:'edit',tx});}} onContextMenu={e=>{e.preventDefault();setCtxMenu({tx,x:e.clientX,y:e.clientY});}}>
+                rows.push(<tr key={tx.id} className={sel.has(tx.id)?'sel':''} style={{cursor:'pointer'}} onClick={e=>{if(e.target.tagName==='INPUT'||e.target.closest('button')||e.target.closest('[data-inline-control]'))return;setModal({type:'edit',tx});}} onContextMenu={e=>{e.preventDefault();setCtxMenu({tx,x:e.clientX,y:e.clientY});}}>
                 <td style={{width:cw.chk}}><input type="checkbox" checked={sel.has(tx.id)} onChange={()=>togSel(tx.id)}/></td>
                 <InlineCell tx={tx} col="date" value={tx.date} active={activeCell?.row===ri&&activeCell?.col==='date'} editing={editCell?.row===ri&&editCell?.col==='date'} onActivate={col=>setActiveCell({row:ri,col})} onEdit={col=>setEditCell(col?{row:ri,col}:null)} onMove={moveCell} onSave={saveCell} categories={categories}/>
                 <InlineCell tx={tx} col="value_date" value={tx.value_date||''} active={activeCell?.row===ri&&activeCell?.col==='value_date'} editing={editCell?.row===ri&&editCell?.col==='value_date'} onActivate={col=>setActiveCell({row:ri,col})} onEdit={col=>setEditCell(col?{row:ri,col}:null)} onMove={moveCell} onSave={saveCell} categories={categories}/>
                 <InlineCell tx={tx} col="merchant" value={tx.merchant} active={activeCell?.row===ri&&activeCell?.col==='merchant'} editing={editCell?.row===ri&&editCell?.col==='merchant'} onActivate={col=>setActiveCell({row:ri,col})} onEdit={col=>setEditCell(col?{row:ri,col}:null)} onMove={moveCell} onSave={saveCell} categories={categories}/>
                 <InlineCell tx={tx} col="category" value={tx.category} active={activeCell?.row===ri&&activeCell?.col==='category'} editing={editCell?.row===ri&&editCell?.col==='category'} onActivate={col=>setActiveCell({row:ri,col})} onEdit={col=>setEditCell(col?{row:ri,col}:null)} onMove={moveCell} onSave={saveCell} categories={categories}/>
-                <InlineCell tx={tx} col="notes" value={tx.notes||''} active={activeCell?.row===ri&&activeCell?.col==='notes'} editing={editCell?.row===ri&&editCell?.col==='notes'} onActivate={col=>setActiveCell({row:ri,col})} onEdit={col=>setEditCell(col?{row:ri,col}:null)} onMove={moveCell} onSave={saveCell} categories={categories}/>
+                <NotesInputCell tx={tx} onSave={saveCell}/>
                 <InlineCell tx={tx} col="amount" value={tx.amount} active={activeCell?.row===ri&&activeCell?.col==='amount'} editing={editCell?.row===ri&&editCell?.col==='amount'} onActivate={col=>setActiveCell({row:ri,col})} onEdit={col=>setEditCell(col?{row:ri,col}:null)} onMove={moveCell} onSave={saveCell} categories={categories}/>
                 <td style={{width:cw.p1,textAlign:'right'}} className="mono">{tx.is_pending?<span className="badge badge-pending">Pending</span>:tx.is_starting_balance?'—':fmtAbs(tx.person1_amount)}</td>
                 <td style={{width:cw.p2,textAlign:'right'}} className="mono">{tx.is_pending?<span className="badge badge-pending">Pending</span>:tx.is_starting_balance?'—':fmtAbs(tx.person2_amount)}</td>
-                <InlineCell tx={tx} col="split" value={tx.is_starting_balance||tx.is_pending?'':`${Math.round(tx.person1_pct*100)}/${Math.round(tx.person2_pct*100)}`} active={activeCell?.row===ri&&activeCell?.col==='split'} editing={editCell?.row===ri&&editCell?.col==='split'} onActivate={col=>setActiveCell({row:ri,col})} onEdit={col=>setEditCell(col?{row:ri,col}:null)} onMove={moveCell} onSave={saveCell} categories={categories}/>
+                <PendingSplitCell tx={tx} onSave={saveCell}/>
                 <td style={{width:cw.sbal,textAlign:'right'}} className={`mono ${(runBal[tx.id]?.shared_balance||0)>=0?'amt-pos':'amt-neg'}`}>{runBal[tx.id]?fmtAbs(runBal[tx.id].shared_balance):'—'}</td>
                 <td style={{width:cw.act}}><div style={{display:'flex',gap:3,justifyContent:'flex-end'}}>
                   <button className="btn btn-ghost btn-sm" onClick={()=>setModal({type:'edit',tx})}><I n="edit" s={13}/></button>
