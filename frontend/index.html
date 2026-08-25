@@ -297,7 +297,7 @@ function PendingSplitCell({tx,onSave}){
   const commit=()=>{const n=parseFloat(pct);if(!isNaN(n))onSave(tx,'split',String(n));};
   if(tx.is_starting_balance)return <td style={{width:65,textAlign:'right',fontFamily:'DM Mono',fontSize:12,color:'var(--text3)'}}>—</td>;
   if(!tx.is_pending)return <td style={{width:65,textAlign:'right',fontFamily:'DM Mono',fontSize:12,color:'var(--text3)'}}>{`${Math.round(tx.person1_pct*100)}/${Math.round(tx.person2_pct*100)}`}</td>;
-  return <td data-inline-control style={{width:190,padding:'5px 8px',borderBottom:'1px solid var(--border)',position:'relative',zIndex:2,pointerEvents:'auto'}} onMouseDown={e=>e.stopPropagation()} onClick={e=>e.stopPropagation()}><div data-inline-control style={{display:'flex',gap:6,alignItems:'center',justifyContent:'flex-end',pointerEvents:'auto'}}><input data-inline-control className="cell-edit" style={{width:74,borderColor:'var(--warn)',textAlign:'right',pointerEvents:'auto'}} placeholder="P1 %" value={pct} onMouseDown={e=>e.stopPropagation()} onClick={e=>e.stopPropagation()} onChange={e=>setPct(e.target.value)} onBlur={commit} onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();commit();e.currentTarget.blur();}}}/><button data-inline-control type="button" className="btn btn-secondary btn-sm" style={{padding:'3px 7px',fontSize:11,pointerEvents:'auto'}} onMouseDown={e=>e.stopPropagation()} onClick={e=>{e.stopPropagation();onSave(tx,'split','50');}}>50/50</button></div></td>;
+  return <td data-inline-control style={{width:190,padding:'5px 8px',borderBottom:'1px solid var(--border)',position:'relative',zIndex:2,pointerEvents:'auto'}} onMouseDown={e=>e.stopPropagation()} onClick={e=>e.stopPropagation()}><div data-inline-control style={{display:'flex',gap:6,alignItems:'center',justifyContent:'flex-end',pointerEvents:'auto'}}><input data-inline-control className="cell-edit" style={{width:78,borderColor:'var(--warn)',background:'#fff8f0',textAlign:'right',pointerEvents:'auto',fontWeight:600}} placeholder="P1 %" value={pct} onMouseDown={e=>e.stopPropagation()} onClick={e=>e.stopPropagation()} onChange={e=>setPct(e.target.value)} onBlur={commit} onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();commit();e.currentTarget.blur();}}}/><button data-inline-control type="button" className="btn btn-primary btn-sm" style={{padding:'3px 8px',fontSize:11,pointerEvents:'auto'}} onMouseDown={e=>e.stopPropagation()} onClick={e=>{e.stopPropagation();onSave(tx,'split','50');}}>50/50</button></div></td>;
 }
 
 // ── Column Filter Popup ───────────────────────────────────────────────────────
@@ -993,6 +993,19 @@ function Transactions({settings,categories}){
     if(col==='split')return tx.person1_pct!=null?String(Math.round(tx.person1_pct*100)):'';
     return col==='value_date'?(tx.value_date||''):tx[col];
   };
+  const localCellUpdate=(tx,col,v)=>{
+    const next={...tx};
+    if(col==='notes')next.notes=String(v).trim()||null;
+    if(col==='split'){
+      const raw=String(v).trim();
+      const pct=raw.includes('/')?parseFloat(raw.split('/')[0]):parseFloat(raw);
+      if(!isNaN(pct)){
+        next.person1_pct=pct/100;next.person2_pct=1-next.person1_pct;next.is_pending=false;
+        next.person1_amount=Math.round(next.person1_pct*next.amount*100)/100;next.person2_amount=Math.round(next.person2_pct*next.amount*100)/100;
+      }
+    }
+    return next;
+  };
   const saveCell=async(tx,col,v)=>{
     const fd={...tx,value_date:tx.value_date||null,notes:tx.notes||null};
     if(col==='date')fd.date=v;
@@ -1007,6 +1020,7 @@ function Transactions({settings,categories}){
       if(!isNaN(pct)){fd.person1_pct=pct/100;fd.person2_pct=1-fd.person1_pct;}
     }
     setUndoTx(tx);
+    setData(d=>({...d,transactions:(d.transactions||[]).map(t=>t.id===tx.id?localCellUpdate(tx,col,v):t)}));
     await authFetch(`${API}/api/transactions/${tx.id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(fd)});
     setToast('Updated. Undo available.');load();
   };
