@@ -31,6 +31,40 @@ class ApiWorkflowTests(unittest.TestCase):
     def tearDown(self):
         self.tmp.cleanup()
 
+    def test_create_transaction_after_audit_uses_tx_id(self):
+        # Creating a second row after an audited first create must not confuse last_insert_rowid.
+        a = self.client.post("/api/transactions", headers=self.headers, json={
+            "date": "2026-03-01", "value_date": None, "amount": -1, "merchant": "A",
+            "category": "Food", "notes": None, "person1_pct": 0.5, "is_transfer": False,
+            "is_starting_balance": False,
+        })
+        self.assertEqual(a.status_code, 200, a.text)
+        b = self.client.post("/api/transactions", headers=self.headers, json={
+            "date": "2026-03-02", "value_date": None, "amount": -2, "merchant": "B",
+            "category": "Food", "notes": None, "person1_pct": None, "is_transfer": False,
+            "is_starting_balance": False,
+        })
+        self.assertEqual(b.status_code, 200, b.text)
+        body = b.json()
+        self.assertEqual(body["merchant"], "B")
+        self.assertTrue(body["is_pending"])
+        self.assertNotEqual(body["id"], a.json()["id"])
+
+    def test_version_endpoint_no_auth(self):
+        os.environ["BUILD_DATE"] = "2026-08-25T12:00:00Z"
+        os.environ["GIT_SHA"] = "abcdef1"
+        os.environ["GIT_REF"] = "cursor/test"
+        try:
+            res = self.client.get("/api/version")
+            self.assertEqual(res.status_code, 200, res.text)
+            body = res.json()
+            self.assertEqual(body["built_at"], "2026-08-25T12:00:00Z")
+            self.assertEqual(body["git_sha"], "abcdef1")
+            self.assertEqual(body["git_ref"], "cursor/test")
+        finally:
+            for key in ("BUILD_DATE", "GIT_SHA", "GIT_REF"):
+                os.environ.pop(key, None)
+
     def test_import_history_audit_exports_and_restore(self):
         self.assertEqual(self.client.get("/api/backup?token=bad").status_code, 401)
         self.assertEqual(self.client.get("/api/backup", headers=self.headers).status_code, 200)

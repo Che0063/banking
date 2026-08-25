@@ -30,6 +30,8 @@
     .sidebar-logo h1{font-size:17px;font-weight:600;letter-spacing:-.3px}
     .sidebar-logo span{color:var(--accent)}
     .sidebar-nav{padding:12px 10px;flex:1}
+    .sidebar-build{padding:12px 14px 16px;border-top:1px solid var(--border);font-size:11px;color:var(--text3);line-height:1.45;font-family:'DM Mono',monospace}
+    .sidebar-build strong{color:var(--text2);font-weight:500;font-family:'DM Sans',sans-serif}
     .nav-item{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:var(--radius-sm);cursor:pointer;font-size:13.5px;color:var(--text2);transition:all .15s;margin-bottom:2px;border:none;background:none;width:100%;text-align:left}
     .nav-item:hover{background:var(--surface2);color:var(--text)}
     .nav-item.active{background:var(--accent-light);color:var(--accent);font-weight:500}
@@ -252,7 +254,7 @@ function TxModal({tx,onClose,onSave,onSaveNext,hasNext,settings,categories}){
 function BulkEditModal({count,categories,settings,onClose,onSave}){
   const [date,setDate]=useState('');const [category,setCategory]=useState('');const [p1pct,setP1pct]=useState('');const [saving,setSaving]=useState(false);
   const save=async()=>{setSaving(true);const b={};if(date)b.date=date;if(category)b.category=category;if(p1pct!==''){const v=parseFloat(p1pct)/100;if(!isNaN(v))b.person1_pct=v;}await onSave(b);setSaving(false);};
-  return(<div className="overlay" onClick={e=>e.target===e.currentTarget&&onClose()}><div className="modal"><div className="mhdr"><h3>Bulk Edit — {count} transactions</h3><button className="btn btn-ghost btn-sm" onClick={onClose}><I n="x"/></button></div><div className="mbody"><p style={{fontSize:13,color:'var(--text2)',marginBottom:14}}>Only filled fields will be updated.</p><div className="form-grid"><div className="form-group"><label className="form-label">Date (set all to)</label><input type="date" className="form-input" value={date} onChange={e=>setDate(e.target.value)}/></div><div className="form-group"><label className="form-label">Category</label><select className="form-select" value={category} onChange={e=>setCategory(e.target.value)}><option value="">— no change —</option>{categories.map(c=><option key={c}>{c}</option>)}</select></div><div className="form-group"><label className="form-label">{settings.person1_name}'s split (%)</label><div style={{display:'flex',gap:6,alignItems:'center'}}><input type="number" min="0" max="100" step="1" className="form-input" style={{flex:1}} placeholder="e.g. 50" value={p1pct} onChange={e=>setP1pct(e.target.value)}/><span style={{color:'var(--text2)'}}>%</span></div><span className="form-hint">Leave blank = no change</span></div></div></div><div className="mfoot"><button className="btn btn-secondary" onClick={onClose}>Cancel</button><button className="btn btn-primary" onClick={save} disabled={saving}>{saving?'Saving…':`Apply to ${count}`}</button></div></div></div>);
+  return(<div className="overlay" onClick={e=>e.target===e.currentTarget&&onClose()}><div className="modal"><div className="mhdr"><h3>Bulk Edit — {count} transactions</h3><button className="btn btn-ghost btn-sm" onClick={onClose}><I n="x"/></button></div><div className="mbody"><p style={{fontSize:13,color:'var(--text2)',marginBottom:14}}>Only filled fields will be updated.</p><div className="form-grid"><div className="form-group"><label className="form-label">Date (set all to)</label><input type="date" className="form-input" value={date} onChange={e=>setDate(e.target.value)}/></div><div className="form-group"><label className="form-label">Category</label><select className="form-select" value={category} onChange={e=>setCategory(e.target.value)}><option value="">— no change —</option>{categories.map(c=><option key={c}>{c}</option>)}</select></div><div className="form-group"><label className="form-label">{settings.person1_name}'s split (%)</label><div style={{display:'flex',gap:6,marginBottom:8,flexWrap:'wrap'}}><button type="button" className="btn btn-secondary btn-sm" style={{fontFamily:'DM Mono,monospace'}} onClick={()=>setP1pct('0')}>0/100</button><button type="button" className="btn btn-secondary btn-sm" style={{fontFamily:'DM Mono,monospace'}} onClick={()=>setP1pct('50')}>50/50</button><button type="button" className="btn btn-secondary btn-sm" style={{fontFamily:'DM Mono,monospace'}} onClick={()=>setP1pct('100')}>100/0</button></div><div style={{display:'flex',gap:6,alignItems:'center'}}><input type="number" min="0" max="100" step="1" className="form-input" style={{flex:1}} placeholder="e.g. 50" value={p1pct} onChange={e=>setP1pct(e.target.value)}/><span style={{color:'var(--text2)'}}>%</span></div><span className="form-hint">Leave blank = no change · 0/100 = all {settings.person2_name}, 100/0 = all {settings.person1_name}</span></div></div></div><div className="mfoot"><button className="btn btn-secondary" onClick={onClose}>Cancel</button><button className="btn btn-primary" onClick={save} disabled={saving}>{saving?'Saving…':`Apply to ${count}`}</button></div></div></div>);
 }
 
 function InlineCell({tx,col,value,active,editing,onActivate,onEdit,onMove,onSave,categories}){
@@ -295,9 +297,23 @@ function PendingSplitCell({tx,onSave}){
   const [pct,setPct]=useState('');
   useEffect(()=>setPct(tx.person1_pct!=null?String(Math.round(tx.person1_pct*100)):''),[tx.id,tx.person1_pct]);
   const commit=()=>{const n=parseFloat(pct);if(!isNaN(n))onSave(tx,'split',String(n));};
+  const apply=v=>{onSave(tx,'split',String(v));};
+  const quick=(label,v)=>(
+    <button data-inline-control type="button" className="btn btn-secondary btn-sm" title={`Set split to ${label}`}
+      style={{padding:'3px 6px',fontSize:11,pointerEvents:'auto',fontFamily:'DM Mono,monospace'}}
+      onMouseDown={e=>e.stopPropagation()}
+      onClick={e=>{e.stopPropagation();apply(v);}}>{label}</button>
+  );
   if(tx.is_starting_balance)return <td style={{width:65,textAlign:'right',fontFamily:'DM Mono',fontSize:12,color:'var(--text3)'}}>—</td>;
   if(!tx.is_pending)return <td style={{width:65,textAlign:'right',fontFamily:'DM Mono',fontSize:12,color:'var(--text3)'}}>{`${Math.round(tx.person1_pct*100)}/${Math.round(tx.person2_pct*100)}`}</td>;
-  return <td data-inline-control style={{width:190,padding:'5px 8px',borderBottom:'1px solid var(--border)',position:'relative',zIndex:2,pointerEvents:'auto'}} onMouseDown={e=>e.stopPropagation()} onClick={e=>e.stopPropagation()}><div data-inline-control style={{display:'flex',gap:6,alignItems:'center',justifyContent:'flex-end',pointerEvents:'auto'}}><input data-inline-control className="cell-edit" style={{width:78,borderColor:'var(--warn)',background:'#fff8f0',textAlign:'right',pointerEvents:'auto',fontWeight:600}} placeholder="P1 %" value={pct} onMouseDown={e=>e.stopPropagation()} onClick={e=>e.stopPropagation()} onChange={e=>setPct(e.target.value)} onBlur={commit} onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();commit();e.currentTarget.blur();}}}/><button data-inline-control type="button" className="btn btn-primary btn-sm" style={{padding:'3px 8px',fontSize:11,pointerEvents:'auto'}} onMouseDown={e=>e.stopPropagation()} onClick={e=>{e.stopPropagation();onSave(tx,'split','50');}}>50/50</button></div></td>;
+  return <td data-inline-control style={{width:280,padding:'5px 8px',borderBottom:'1px solid var(--border)',position:'relative',zIndex:2,pointerEvents:'auto'}} onMouseDown={e=>e.stopPropagation()} onClick={e=>e.stopPropagation()}>
+    <div data-inline-control style={{display:'flex',gap:4,alignItems:'center',justifyContent:'flex-end',flexWrap:'wrap',pointerEvents:'auto'}}>
+      <input data-inline-control className="cell-edit" style={{width:52,borderColor:'var(--warn)',background:'#fff8f0',textAlign:'right',pointerEvents:'auto',fontWeight:600}} placeholder="P1 %" value={pct} onMouseDown={e=>e.stopPropagation()} onClick={e=>e.stopPropagation()} onChange={e=>setPct(e.target.value)} onBlur={commit} onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();commit();e.currentTarget.blur();}}}/>
+      {quick('0/100','0')}
+      {quick('50/50','50')}
+      {quick('100/0','100')}
+    </div>
+  </td>;
 }
 
 // ── Column Filter Popup ───────────────────────────────────────────────────────
@@ -902,7 +918,7 @@ function Dashboard({settings}){
 }
 
 // ── Transactions ──────────────────────────────────────────────────────────────
-const DW={chk:36,date:110,vd:100,merchant:190,cat:110,notes:180,amt:100,p1:95,p2:95,split:190,sbal:110,act:72};
+const DW={chk:36,date:110,vd:100,merchant:190,cat:110,notes:180,amt:100,p1:95,p2:95,split:280,sbal:110,act:72};
 function Transactions({settings,categories}){
   const [data,setData]=useState({transactions:[],total:0,all_ids:[]});
   const [search,setSearch]=useState('');
@@ -1562,6 +1578,35 @@ class EB extends React.Component{
   render(){if(this.state.err)return <div style={{fontFamily:'sans-serif',padding:40,color:'#c0392b'}}><h2>Something went wrong</h2><pre style={{marginTop:12,fontSize:13,color:'#333',whiteSpace:'pre-wrap'}}>{this.state.err.message}</pre></div>;return this.props.children;}
 }
 
+function formatBuildStamp(info){
+  if(!info)return null;
+  const raw=info.built_at;
+  let when=null;
+  if(raw&&raw!=='unknown'){
+    const d=new Date(raw);
+    when=isNaN(d.getTime())?raw:d.toLocaleString(undefined,{year:'numeric',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
+  }
+  const sha=info.git_sha&&info.git_sha!=='unknown'?String(info.git_sha).slice(0,7):null;
+  const ref=info.git_ref&&info.git_ref!=='unknown'?info.git_ref:null;
+  if(!when&&!sha)return null;
+  return{when,sha,ref,title:[when&&`Built ${when}`,sha&&`commit ${info.git_sha}`,ref&&`ref ${ref}`].filter(Boolean).join(' · ')};
+}
+
+function BuildStamp(){
+  const [stamp,setStamp]=useState(null);
+  useEffect(()=>{
+    const load=async()=>{
+      let fe=null,be=null;
+      try{const r=await fetch('/build-info.json',{cache:'no-store'});if(r.ok)fe=await r.json();}catch{}
+      try{const r=await fetch(`${API}/api/version`,{cache:'no-store'});if(r.ok)be=await r.json();}catch{}
+      setStamp(formatBuildStamp(fe)||formatBuildStamp(be));
+    };
+    load();
+  },[]);
+  if(!stamp)return <div className="sidebar-build">Build · unknown</div>;
+  return <div className="sidebar-build" title={stamp.title}><strong>Build</strong><div>{stamp.when||'—'}</div>{stamp.sha&&<div>{stamp.sha}{stamp.ref?` · ${stamp.ref}`:''}</div>}</div>;
+}
+
 // ── App ───────────────────────────────────────────────────────────────────────
 function App(){
   const [authed,setAuthed]=useState(false);const [pwReq,setPwReq]=useState(false);const [ck,setCk]=useState(true);
@@ -1596,6 +1641,7 @@ function App(){
     <aside className="sidebar">
       <div className="sidebar-logo"><h1>Bank<span>ing</span></h1><div style={{fontSize:12,color:'var(--text3)',marginTop:2}}>{settings.person1_name} & {settings.person2_name}</div></div>
       <nav className="sidebar-nav">{nav.map(n=><button key={n.id} className={`nav-item${page===n.id?' active':''}`} onClick={()=>setPage(n.id)}><I n={n.icon} s={15}/>{n.label}</button>)}</nav>
+      <BuildStamp/>
     </aside>
     <main className="main">
       {page==='dashboard'&&<Dashboard settings={settings}/>}
