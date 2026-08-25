@@ -297,7 +297,7 @@ function PendingSplitCell({tx,onSave}){
   const commit=()=>{const n=parseFloat(pct);if(!isNaN(n))onSave(tx,'split',String(n));};
   if(tx.is_starting_balance)return <td style={{width:65,textAlign:'right',fontFamily:'DM Mono',fontSize:12,color:'var(--text3)'}}>—</td>;
   if(!tx.is_pending)return <td style={{width:65,textAlign:'right',fontFamily:'DM Mono',fontSize:12,color:'var(--text3)'}}>{`${Math.round(tx.person1_pct*100)}/${Math.round(tx.person2_pct*100)}`}</td>;
-  return <td data-inline-control style={{width:140,padding:'5px 8px',borderBottom:'1px solid var(--border)',position:'relative',zIndex:2,pointerEvents:'auto'}} onMouseDown={e=>e.stopPropagation()} onClick={e=>e.stopPropagation()}><div data-inline-control style={{display:'flex',gap:5,alignItems:'center',justifyContent:'flex-end',pointerEvents:'auto'}}><button data-inline-control type="button" className="btn btn-secondary btn-sm" style={{padding:'3px 6px',fontSize:11,pointerEvents:'auto'}} onMouseDown={e=>e.stopPropagation()} onClick={e=>{e.stopPropagation();onSave(tx,'split','50');}}>50/50</button><input data-inline-control className="cell-edit" style={{width:48,borderColor:'var(--warn)',textAlign:'right',pointerEvents:'auto'}} placeholder="%" value={pct} onMouseDown={e=>e.stopPropagation()} onClick={e=>e.stopPropagation()} onChange={e=>setPct(e.target.value)} onBlur={commit} onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();commit();e.currentTarget.blur();}}}/><span style={{fontSize:11,color:'var(--text3)'}}>%</span></div></td>;
+  return <td data-inline-control style={{width:190,padding:'5px 8px',borderBottom:'1px solid var(--border)',position:'relative',zIndex:2,pointerEvents:'auto'}} onMouseDown={e=>e.stopPropagation()} onClick={e=>e.stopPropagation()}><div data-inline-control style={{display:'flex',gap:6,alignItems:'center',justifyContent:'flex-end',pointerEvents:'auto'}}><input data-inline-control className="cell-edit" style={{width:74,borderColor:'var(--warn)',textAlign:'right',pointerEvents:'auto'}} placeholder="P1 %" value={pct} onMouseDown={e=>e.stopPropagation()} onClick={e=>e.stopPropagation()} onChange={e=>setPct(e.target.value)} onBlur={commit} onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();commit();e.currentTarget.blur();}}}/><button data-inline-control type="button" className="btn btn-secondary btn-sm" style={{padding:'3px 7px',fontSize:11,pointerEvents:'auto'}} onMouseDown={e=>e.stopPropagation()} onClick={e=>{e.stopPropagation();onSave(tx,'split','50');}}>50/50</button></div></td>;
 }
 
 // ── Column Filter Popup ───────────────────────────────────────────────────────
@@ -902,7 +902,7 @@ function Dashboard({settings}){
 }
 
 // ── Transactions ──────────────────────────────────────────────────────────────
-const DW={chk:36,date:110,vd:100,merchant:190,cat:110,notes:180,amt:100,p1:95,p2:95,split:145,sbal:110,act:72};
+const DW={chk:36,date:110,vd:100,merchant:190,cat:110,notes:180,amt:100,p1:95,p2:95,split:190,sbal:110,act:72};
 function Transactions({settings,categories}){
   const [data,setData]=useState({transactions:[],total:0,all_ids:[]});
   const [search,setSearch]=useState('');
@@ -1121,7 +1121,7 @@ function Transactions({settings,categories}){
     </div>}
     <div className="card">
       <div className="table-outer">
-        <table ref={tableRef} style={{minWidth:900}}>
+        <table ref={tableRef} style={{minWidth:1120}}>
           <thead><tr>
             <th style={{width:cw.chk}}><div className="th-inner"><input type="checkbox" checked={txs.length>0&&sel.size===txs.length} onChange={togPage}/></div></th>
             {cols.map(c=><RsTh key={c.key} colKey={c.key} label={c.label} width={cw[c.w]||100} onResize={w=>resize(c.w,w)} sortCol={sc} sortDir={sd} onSort={c.sort?sort:null} colType={c.ct} colFilter={cf[c.key]} onFilter={filter}/>)}
